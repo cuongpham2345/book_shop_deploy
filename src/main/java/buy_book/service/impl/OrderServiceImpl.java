@@ -1,5 +1,6 @@
 package buy_book.service.impl;
 
+import buy_book.constant.NotificationType;
 import buy_book.dto.request.CheckoutRequest;
 import buy_book.dto.response.OrderItemResponse;
 import buy_book.dto.response.OrderResponse;
@@ -7,6 +8,7 @@ import buy_book.entity.*;
 import buy_book.exception.AppException;
 import buy_book.exception.ErrorCode;
 import buy_book.repository.*;
+import buy_book.service.NotificationService;
 import buy_book.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ public class OrderServiceImpl implements OrderService {
     private final CartRepository cartRepository;
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -104,6 +107,12 @@ public class OrderServiceImpl implements OrderService {
             cart.getItems().clear();
         }
         cartRepository.save(cart);
+
+        notificationService.create(user,
+                "Đặt hàng thành công",
+                "Đơn hàng #" + order.getOrderCode() + " đã được đặt thành công. Chúng tôi sẽ xử lý sớm nhất!",
+                NotificationType.ORDER_PLACED,
+                order.getId(), order.getOrderCode());
 
         return toOrderResponse(order);
     }
