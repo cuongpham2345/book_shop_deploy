@@ -2,6 +2,7 @@ package buy_book.properties;
 
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.security.KeyFactory;
@@ -13,6 +14,7 @@ import java.util.Base64;
 
 @Component
 @Getter
+@ConfigurationProperties(prefix = "rsa")  // ← thêm lại cái này
 public class RsaKeyConfigProperties {
 
     private final RSAPublicKey publicKey;
@@ -31,9 +33,8 @@ public class RsaKeyConfigProperties {
                 .replace("-----BEGIN PUBLIC KEY-----", "")
                 .replace("-----END PUBLIC KEY-----", "")
                 .replaceAll("\\s+", "");
-        byte[] decoded = Base64.getDecoder().decode(clean);
         return (RSAPublicKey) KeyFactory.getInstance("RSA")
-                .generatePublic(new X509EncodedKeySpec(decoded));
+                .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(clean)));
     }
 
     private RSAPrivateKey parsePrivateKey(String pem) throws Exception {
@@ -41,8 +42,7 @@ public class RsaKeyConfigProperties {
                 .replace("-----BEGIN PRIVATE KEY-----", "")
                 .replace("-----END PRIVATE KEY-----", "")
                 .replaceAll("\\s+", "");
-        byte[] decoded = Base64.getDecoder().decode(clean);
         return (RSAPrivateKey) KeyFactory.getInstance("RSA")
-                .generatePrivate(new PKCS8EncodedKeySpec(decoded));
+                .generatePrivate(new PKCS8EncodedKeySpec(Base64.getDecoder().decode(clean)));
     }
 }
