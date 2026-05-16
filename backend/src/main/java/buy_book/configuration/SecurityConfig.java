@@ -102,7 +102,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "http://localhost:3000",
-                "https://book-shop-deploy.up.railway.app" // ← cập nhật sau khi có domain thật
+                "https://bookshopdeploy-production-f405.up.railway.app"
         ));
         config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
         config.setAllowedHeaders(List.of("*"));
