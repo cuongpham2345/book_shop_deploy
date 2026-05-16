@@ -24,7 +24,7 @@ public class NotificationController {
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(ApiResponse.<List<NotificationResponse>>builder()
                 .code(200)
-                .data(notificationService.getMyNotifications(jwt.getSubject()))
+                .result(notificationService.getMyNotifications(jwt.getSubject()))
                 .build());
     }
 
@@ -33,7 +33,7 @@ public class NotificationController {
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(ApiResponse.<Long>builder()
                 .code(200)
-                .data(notificationService.getUnreadCount(jwt.getSubject()))
+                .result(notificationService.getUnreadCount(jwt.getSubject()))
                 .build());
     }
 

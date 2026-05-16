@@ -1,23 +1,17 @@
 import { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { ShoppingCart, User, LogOut, BookOpen, Search, Menu, X, Bell } from 'lucide-react'
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { ShoppingCart, User, LogOut, BookOpen, Menu, X, Bell, ShieldCheck, Store, Package } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useNotifications } from '../../context/NotificationContext'
 
 export function Header() {
   const { user, logout, isAuthenticated, hasRole } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [searchQ, setSearchQ] = useState('')
   const { unreadCount } = useNotifications()
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    if (searchQ.trim()) {
-      navigate(`/books?q=${encodeURIComponent(searchQ.trim())}`)
-      setSearchQ('')
-    }
-  }
+  const isAdminPage = location.pathname.startsWith('/admin')
 
   const handleLogout = () => {
     logout()
@@ -37,87 +31,85 @@ export function Header() {
             <span className="font-bold text-gray-900 text-base">Book<span className="text-indigo-600">Shop</span></span>
           </Link>
 
-          {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1 hidden sm:flex max-w-md">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
-                placeholder="Tìm sách, tác giả..."
-                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-gray-50"
-              />
-            </div>
-          </form>
-
           {/* Right side */}
           <div className="ml-auto flex items-center gap-1">
-            <NavLink to="/books" className={({ isActive }) =>
-              `hidden sm:block px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`
-            }>
-              Sách
-            </NavLink>
-
             {isAuthenticated ? (
               <>
-                <NavLink to="/notifications" className={({ isActive }) =>
-                  `relative p-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`
-                }>
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                </NavLink>
+                {(!hasRole('ADMIN') || isAdminPage) && (
+                  <NavLink to="/notifications" className={({ isActive }) =>
+                    `relative p-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`
+                  }>
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </NavLink>
+                )}
 
-                <NavLink to="/cart" className={({ isActive }) =>
-                  `p-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`
-                }>
-                  <ShoppingCart className="h-5 w-5" />
-                </NavLink>
-
-                <div className="relative group">
-                  <button className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    <User className="h-4 w-4" />
-                    <span className="hidden sm:block max-w-24 truncate">{user?.fullName || user?.username}</span>
-                  </button>
-                  <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                    <div className="px-3 py-2 border-b border-gray-100">
-                      <p className="text-xs font-semibold text-gray-900 truncate">{user?.fullName}</p>
-                      <p className="text-xs text-gray-400">{user?.role}</p>
-                    </div>
-                    <NavLink to="/orders" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                      Đơn hàng của tôi
+                {!hasRole('ADMIN') && !hasRole('SELLER') && (
+                  <>
+                    <NavLink to="/cart" className={({ isActive }) =>
+                      `p-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`
+                    }>
+                      <ShoppingCart className="h-5 w-5" />
                     </NavLink>
-                    {hasRole('SELLER', 'ADMIN') && (
-                      <Link to="/seller/books" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        Quản lý sách
-                      </Link>
-                    )}
-                    {hasRole('ADMIN') && (
-                      <Link to="/admin/orders" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        Quản trị đơn hàng
-                      </Link>
-                    )}
-                    {hasRole('ADMIN') && (
-                      <Link to="/admin/users" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        Quản lý tài khoản
-                      </Link>
-                    )}
-                    {hasRole('ADMIN') && (
-                      <Link to="/admin/categories" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        Quản lý danh mục
-                      </Link>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    <NavLink to="/orders" className={({ isActive }) =>
+                      `hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`
+                    }>
+                      <Package className="h-4 w-4" /> Đơn hàng của tôi
+                    </NavLink>
+                  </>
+                )}
+
+                {hasRole('ADMIN') ? (
+                  /* Admin: click tên → /admin, logout icon riêng */
+                  <div className="flex items-center gap-1">
+                    <Link to="/admin"
+                      className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg text-sm font-medium text-indigo-700 hover:bg-indigo-50 transition-colors"
                     >
-                      <LogOut className="h-4 w-4" /> Đăng xuất
+                      <ShieldCheck className="h-4 w-4" />
+                      <span className="hidden sm:block max-w-24 truncate">{user?.fullName || user?.username}</span>
+                    </Link>
+                    <button onClick={handleLogout} title="Đăng xuất"
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                      <LogOut className="h-4 w-4" />
                     </button>
                   </div>
-                </div>
+                ) : hasRole('SELLER') ? (
+                  /* Seller: click tên → /seller/dashboard, logout icon riêng */
+                  <div className="flex items-center gap-1">
+                    <Link to="/seller/dashboard"
+                      className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
+                    >
+                      <Store className="h-4 w-4" />
+                      <span className="hidden sm:block max-w-24 truncate">{user?.fullName || user?.username}</span>
+                    </Link>
+                    <button onClick={handleLogout} title="Đăng xuất"
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                      <LogOut className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  /* User: click tên → thẳng tới thông tin cá nhân, logout icon riêng */
+                  <div className="flex items-center gap-1">
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2 pl-2 pr-1 py-1.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="h-4 w-4" />
+                      <span className="hidden sm:block max-w-24 truncate">{user?.fullName || user?.username}</span>
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      title="Đăng xuất"
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="flex items-center gap-2">
@@ -135,20 +127,8 @@ export function Header() {
         {/* Mobile menu */}
         {menuOpen && (
           <div className="sm:hidden py-3 border-t border-gray-100 space-y-1">
-            <form onSubmit={handleSearch} className="mb-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  value={searchQ}
-                  onChange={(e) => setSearchQ(e.target.value)}
-                  placeholder="Tìm sách..."
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none bg-gray-50"
-                />
-              </div>
-            </form>
-            <NavLink to="/books" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Sách</NavLink>
-            {isAuthenticated && (
-              <NavLink to="/orders" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Đơn hàng</NavLink>
+            {isAuthenticated && !hasRole('ADMIN') && !hasRole('SELLER') && (
+              <NavLink to="/orders" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Đơn hàng của tôi</NavLink>
             )}
           </div>
         )}

@@ -4,6 +4,9 @@ export const categoriesApi = {
   getAll: () =>
     api.get('/api/categories'),
 
+  getAllAdmin: () =>
+    api.get('/api/admin/categories'),
+
   getById: (id) =>
     api.get(`/api/categories/${id}`),
 

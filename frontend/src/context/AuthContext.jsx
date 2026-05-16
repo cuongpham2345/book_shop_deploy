@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
+import { authApi } from '../api/auth'
 
 const AuthContext = createContext(null)
 
@@ -22,6 +23,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(() => {
+    authApi.logout().catch(() => {})
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setUser(null)

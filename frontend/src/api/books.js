@@ -16,6 +16,9 @@ export const booksApi = {
   getByCategory: (categoryId, params) =>
     api.get(`/api/books/category/${categoryId}`, { params }),
 
+  getMyBooks: () =>
+    api.get('/api/seller/books'),
+
   createBook: (data) =>
     api.post('/api/seller/books', data),
 
@@ -24,4 +27,7 @@ export const booksApi = {
 
   deleteBook: (id) =>
     api.delete(`/api/seller/books/${id}`),
+
+  getSellerBooks: (sellerId, params) =>
+    api.get(`/api/admin/sellers/${sellerId}/books`, { params }),
 }

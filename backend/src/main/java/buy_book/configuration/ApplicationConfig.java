@@ -27,7 +27,7 @@ public class ApplicationConfig {
                         .username("admin")
                         .fullName("ADMIN")
                         .email("admin@bookshop.com")
-                        .password(passwordEncoder.encode("Admin1234"))
+                            .password(passwordEncoder.encode("Admin1234"))
                         .role(Role.ADMIN)
                         .isActive(true)
                         .build();

@@ -25,8 +25,7 @@ export default function Login() {
       toast.success('Đăng nhập thành công!')
       navigate(from, { replace: true })
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg || 'Tên đăng nhập hoặc mật khẩu không đúng')
+      setError('Sai tài khoản hoặc mật khẩu')
     } finally {
       setLoading(false)
     }

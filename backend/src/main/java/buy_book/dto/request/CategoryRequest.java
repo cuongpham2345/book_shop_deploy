@@ -17,4 +17,5 @@ public class CategoryRequest {
 
     String description;
     String imageUrl;
+    Boolean active;
 }

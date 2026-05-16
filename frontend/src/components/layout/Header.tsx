@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { ShoppingCart, User, LogOut, BookOpen, Search, Menu, X, LayoutDashboard } from 'lucide-react'
+import { ShoppingCart, User, LogOut, BookOpen, Search, Menu, X, LayoutDashboard, Package } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
 export function Header() {
@@ -61,11 +61,13 @@ export function Header() {
                   <ShoppingCart className="h-5 w-5" />
                 </NavLink>
 
-                <NavLink to="/orders" className={({ isActive }) =>
-                  `hidden sm:flex p-2 rounded-lg transition-colors ${isActive ? 'text-gray-900 bg-gray-100' : 'text-gray-600 hover:bg-gray-50'}`
-                }>
-                  <LayoutDashboard className="h-5 w-5" />
-                </NavLink>
+                {!hasRole('SELLER', 'ADMIN') && (
+                  <NavLink to="/orders" className={({ isActive }) =>
+                    `hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${isActive ? 'text-gray-900 bg-gray-100' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`
+                  }>
+                    <Package className="h-4 w-4" /> Đơn hàng của tôi
+                  </NavLink>
+                )}
 
                 <div className="relative group">
                   <button className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
@@ -77,9 +79,19 @@ export function Header() {
                       <p className="text-xs font-semibold text-gray-900 truncate">{user?.fullName}</p>
                       <p className="text-xs text-gray-400 truncate">{user?.role}</p>
                     </div>
+                    {!hasRole('SELLER', 'ADMIN') && (
+                      <Link to="/orders" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <Package className="h-4 w-4" /> Đơn hàng của tôi
+                      </Link>
+                    )}
                     {hasRole('SELLER', 'ADMIN') && (
                       <Link to="/seller/books" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                         <BookOpen className="h-4 w-4" /> Quản lý sách
+                      </Link>
+                    )}
+                    {hasRole('SELLER', 'ADMIN') && (
+                      <Link to="/seller/orders" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <LayoutDashboard className="h-4 w-4" /> Đơn hàng của shop
                       </Link>
                     )}
                     {hasRole('ADMIN') && (
@@ -126,9 +138,14 @@ export function Header() {
             <NavLink to="/books" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Sách</NavLink>
             {isAuthenticated && (
               <>
-                <NavLink to="/orders" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Đơn hàng</NavLink>
+                {!hasRole('SELLER', 'ADMIN') && (
+                  <NavLink to="/orders" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Đơn hàng của tôi</NavLink>
+                )}
                 {hasRole('SELLER', 'ADMIN') && (
                   <NavLink to="/seller/books" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Quản lý sách</NavLink>
+                )}
+                {hasRole('SELLER', 'ADMIN') && (
+                  <NavLink to="/seller/orders" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Đơn hàng của shop</NavLink>
                 )}
               </>
             )}

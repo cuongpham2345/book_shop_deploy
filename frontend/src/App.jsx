@@ -11,11 +11,19 @@ import Register from './pages/Register'
 import Cart from './pages/Cart'
 import Orders from './pages/Orders'
 import ManageBooks from './pages/seller/ManageBooks'
+import SellerDashboard from './pages/seller/SellerDashboard'
 import ManageOrders from './pages/admin/ManageOrders'
 import ManageUsers from './pages/admin/ManageUsers'
 import ManageCategories from './pages/admin/ManageCategories'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import ManageSellers from './pages/admin/ManageSellers'
+import ManageAdminBooks from './pages/admin/ManageAdminBooks'
+import AdminAuditLog from './pages/admin/AdminAuditLog'
 import ProductDetail from './pages/ProductDetail'
 import Notifications from './pages/Notifications'
+import Profile from './pages/Profile'
+import ManageProfileRequests from './pages/admin/ManageProfileRequests'
+
 
 function RequireAuth({ children, roles }) {
   const { isAuthenticated, hasRole } = useAuth()
@@ -35,7 +43,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <NotificationProvider>
-        <Toaster position="top-right" toastOptions={{ className: 'text-sm' }} />
+        <Toaster position="top-right" toastOptions={{ className: 'text-sm', duration: 4000, error: { duration: 10000 } }} />
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Home />} />
@@ -53,8 +61,20 @@ export default function App() {
             <Route path="notifications" element={
               <RequireAuth><Notifications /></RequireAuth>
             } />
+            <Route path="profile" element={
+              <RequireAuth><Profile /></RequireAuth>
+            } />
+            <Route path="seller/dashboard" element={
+              <RequireAuth roles={['SELLER', 'ADMIN']}><SellerDashboard /></RequireAuth>
+            } />
             <Route path="seller/books" element={
               <RequireAuth roles={['SELLER', 'ADMIN']}><ManageBooks /></RequireAuth>
+            } />
+            <Route path="seller/orders" element={
+              <RequireAuth roles={['SELLER', 'ADMIN']}><ManageOrders /></RequireAuth>
+            } />
+            <Route path="admin" element={
+              <RequireAuth roles={['ADMIN']}><AdminDashboard /></RequireAuth>
             } />
             <Route path="admin/orders" element={
               <RequireAuth roles={['ADMIN']}><ManageOrders /></RequireAuth>
@@ -62,8 +82,20 @@ export default function App() {
             <Route path="admin/users" element={
               <RequireAuth roles={['ADMIN']}><ManageUsers /></RequireAuth>
             } />
+            <Route path="admin/sellers" element={
+              <RequireAuth roles={['ADMIN']}><ManageSellers /></RequireAuth>
+            } />
             <Route path="admin/categories" element={
               <RequireAuth roles={['ADMIN']}><ManageCategories /></RequireAuth>
+            } />
+            <Route path="admin/books" element={
+              <RequireAuth roles={['ADMIN']}><ManageAdminBooks /></RequireAuth>
+            } />
+            <Route path="admin/audit-logs" element={
+              <RequireAuth roles={['ADMIN']}><AdminAuditLog /></RequireAuth>
+            } />
+            <Route path="admin/profile-requests" element={
+              <RequireAuth roles={['ADMIN']}><ManageProfileRequests /></RequireAuth>
             } />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -1,5 +1,6 @@
 package buy_book.service.impl;
 
+import buy_book.constant.BookStatus;
 import buy_book.dto.request.BookRequest;
 import buy_book.dto.response.BookDetailResponse;
 import buy_book.dto.response.BookSummaryResponse;
@@ -79,6 +80,11 @@ public class BookServiceImpl implements BookService {
             throw new RuntimeException("ISBN đã tồn tại");
         }
 
+        BookStatus bookStatus = BookStatus.ACTIVE;
+        if (request.getStatus() != null) {
+            try { bookStatus = BookStatus.valueOf(request.getStatus()); } catch (IllegalArgumentException ignored) {}
+        }
+
         Book book = Book.builder()
                 .title(request.getTitle())
                 .author(request.getAuthor())
@@ -94,7 +100,8 @@ public class BookServiceImpl implements BookService {
                 .language(request.getLanguage())
                 .category(category)
                 .seller(seller)
-                .active(true)
+                .status(bookStatus)
+                .active(bookStatus == BookStatus.ACTIVE)
                 .build();
 
         return toDetailResponse(bookRepository.save(book));
@@ -105,10 +112,22 @@ public class BookServiceImpl implements BookService {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
 
+        User requester = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (requester.getRole() == buy_book.constant.Role.SELLER) {
+            if (book.getSeller() == null || !book.getSeller().getId().equals(requester.getId()))
+                throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
         Category category = null;
         if (request.getCategoryId() != null) {
             category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+        }
+
+        if (request.getIsbn() != null && !request.getIsbn().equals(book.getIsbn())
+                && bookRepository.existsByIsbnAndIdNot(request.getIsbn(), id)) {
+            throw new RuntimeException("ISBN đã tồn tại");
         }
 
         book.setTitle(request.getTitle());
@@ -124,6 +143,13 @@ public class BookServiceImpl implements BookService {
         book.setPageCount(request.getPageCount());
         book.setLanguage(request.getLanguage());
         book.setCategory(category);
+        if (request.getStatus() != null) {
+            try {
+                BookStatus s = BookStatus.valueOf(request.getStatus());
+                book.setStatus(s);
+                book.setActive(s == BookStatus.ACTIVE);
+            } catch (IllegalArgumentException ignored) {}
+        }
 
         return toDetailResponse(bookRepository.save(book));
     }
@@ -132,20 +158,54 @@ public class BookServiceImpl implements BookService {
     public PageResponse<BookSummaryResponse> filterBooks(
             String title, String author, Integer publishYear,
             BigDecimal minPrice, BigDecimal maxPrice,
-            Long categoryId, Boolean hasDiscount, String sortBy, int page, int size) {
+            Long categoryId, Boolean hasDiscount, String sortBy, int page, int size,
+            String sellerName) {
 
         Sort sort = getSort(sortBy);
         Pageable pageable = PageRequest.of(page, size, sort);
-        Specification<Book> spec = BookSpecification.filter(title, author, publishYear, minPrice, maxPrice, categoryId, hasDiscount);
+        Specification<Book> spec = BookSpecification.filter(title, author, publishYear, minPrice, maxPrice, categoryId, hasDiscount, sellerName);
         return toPageResponse(bookRepository.findAll(spec, pageable));
     }
 
     @Override
-    public void deleteBook(Long id) {
+    public BookDetailResponse getBookDetailAdmin(Long id) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+        return toDetailResponse(book);
+    }
+
+    @Override
+    public PageResponse<BookSummaryResponse> getBooksBySeller(Long sellerId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Book> bookPage = bookRepository.findBySellerId(sellerId, pageable);
+        return toPageResponse(bookPage);
+    }
+
+    @Override
+    public void deleteBook(Long id, String username) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+
+        User requester = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (requester.getRole() == buy_book.constant.Role.SELLER) {
+            if (book.getSeller() == null || !book.getSeller().getId().equals(requester.getId()))
+                throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
         book.setActive(false);
+        book.setStatus(BookStatus.INACTIVE);
         bookRepository.save(book);
+    }
+
+    @Override
+    public List<BookDetailResponse> getMyBooks(String username) {
+        User seller = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        return bookRepository.findBySellerIdOrderByCreatedAtDesc(seller.getId())
+                .stream()
+                .map(this::toDetailResponse)
+                .toList();
     }
 
     // ==================== HELPER METHODS ====================
@@ -193,7 +253,8 @@ public class BookServiceImpl implements BookService {
                 .avgRating(book.getAvgRating())
                 .totalSold(book.getTotalSold())
                 .stockQuantity(book.getStockQuantity())
-                .status(book.isActive() ? "ACTIVE" : "INACTIVE")
+                .status(book.getStatus() != null ? book.getStatus().name() : (book.isActive() ? "ACTIVE" : "INACTIVE"))
+                .sellerName(book.getSeller() != null ? book.getSeller().getFullName() : null)
                 .build();
     }
 
@@ -218,7 +279,7 @@ public class BookServiceImpl implements BookService {
                 .sellerId(book.getSeller() != null ? book.getSeller().getId() : null)
                 .avgRating(book.getAvgRating())
                 .totalSold(book.getTotalSold())
-                .status(book.isActive() ? "ACTIVE" : "INACTIVE")
+                .status(book.getStatus() != null ? book.getStatus().name() : (book.isActive() ? "ACTIVE" : "INACTIVE"))
                 .createdAt(book.getCreatedAt())
                 .updatedAt(book.getUpdatedAt())
                 .build();

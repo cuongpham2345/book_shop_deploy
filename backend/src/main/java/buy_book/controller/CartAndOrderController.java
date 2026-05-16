@@ -29,7 +29,7 @@ public class CartAndOrderController {
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(ApiResponse.<CartResponse>builder()
                 .code(200)
-                .data(cartService.getCart(jwt.getSubject()))
+                .result(cartService.getCart(jwt.getSubject()))
                 .build());
     }
 
@@ -40,7 +40,7 @@ public class CartAndOrderController {
         return ResponseEntity.ok(ApiResponse.<CartResponse>builder()
                 .code(200)
                 .message("Thêm vào giỏ hàng thành công")
-                .data(cartService.addToCart(jwt.getSubject(), request))
+                .result(cartService.addToCart(jwt.getSubject(), request))
                 .build());
     }
 
@@ -52,7 +52,7 @@ public class CartAndOrderController {
         return ResponseEntity.ok(ApiResponse.<CartResponse>builder()
                 .code(200)
                 .message("Cập nhật giỏ hàng thành công")
-                .data(cartService.updateCartItem(jwt.getSubject(), cartItemId, quantity))
+                .result(cartService.updateCartItem(jwt.getSubject(), cartItemId, quantity))
                 .build());
     }
 
@@ -86,7 +86,7 @@ public class CartAndOrderController {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .code(200)
                 .message("Đặt hàng thành công")
-                .data(orderService.checkout(jwt.getSubject(), request))
+                .result(orderService.checkout(jwt.getSubject(), request))
                 .build());
     }
 
@@ -101,7 +101,7 @@ public class CartAndOrderController {
         return ResponseEntity.ok(ApiResponse.<CheckoutAllResponse>builder()
                 .code(200)
                 .message(message)
-                .data(result)
+                .result(result)
                 .build());
     }
 
@@ -110,7 +110,7 @@ public class CartAndOrderController {
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(ApiResponse.<List<OrderResponse>>builder()
                 .code(200)
-                .data(orderService.getOrderHistory(jwt.getSubject()))
+                .result(orderService.getOrderHistory(jwt.getSubject()))
                 .build());
     }
 
@@ -120,7 +120,30 @@ public class CartAndOrderController {
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .code(200)
-                .data(orderService.getOrderDetail(jwt.getSubject(), orderId))
+                .result(orderService.getOrderDetail(jwt.getSubject(), orderId))
+                .build());
+    }
+
+    @PatchMapping("/api/orders/{orderId}/confirm-received")
+    public ResponseEntity<ApiResponse<OrderResponse>> confirmReceived(
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
+                .code(200)
+                .message("Xác nhận đã nhận hàng thành công")
+                .result(orderService.confirmReceived(jwt.getSubject(), orderId))
+                .build());
+    }
+
+    @PatchMapping("/api/orders/{orderId}/cancel")
+    public ResponseEntity<ApiResponse<OrderResponse>> cancelOrder(
+            @PathVariable Long orderId,
+            @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
+                .code(200)
+                .message("Hủy đơn hàng thành công")
+                .result(orderService.cancelOrder(jwt.getSubject(), orderId, reason))
                 .build());
     }
 }

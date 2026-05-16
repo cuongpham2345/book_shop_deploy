@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ordersApi, type AdminCreateOrderPayload } from '../../api/orders'
 import { usersApi } from '../../api/users'
 import { PageSpinner } from '../../components/ui/Spinner'
@@ -32,6 +33,8 @@ const emptyForm = (): AdminCreateOrderPayload => ({
 })
 
 export default function ManageOrders() {
+  const location = useLocation()
+  const isSellerPage = location.pathname.startsWith('/seller/orders')
   const [orders, setOrders] = useState<OrderResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -40,12 +43,13 @@ export default function ManageOrders() {
   const [submitting, setSubmitting] = useState(false)
 
   const fetchOrders = () => {
-    ordersApi.getAllOrders()
+    const request = isSellerPage ? ordersApi.getSellerOrders() : ordersApi.getAllOrders()
+    request
       .then((res) => setOrders(res.data.result))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchOrders() }, [])
+  useEffect(() => { fetchOrders() }, [isSellerPage])
 
   const openModal = () => {
     usersApi.getAll().then((res) => {
@@ -107,10 +111,7 @@ export default function ManageOrders() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Quản lý đơn hàng</h1>
-        <button onClick={openModal} className="btn btn-primary text-sm px-4 py-2">
-          + Tạo đơn hàng
-        </button>
+        <h1 className="text-2xl font-bold text-gray-900">{isSellerPage ? 'Đơn hàng của shop' : 'Quản lý đơn hàng'}</h1>
       </div>
 
       <div className="card overflow-x-auto">
@@ -120,9 +121,10 @@ export default function ManageOrders() {
               <th className="px-4 py-3">Mã đơn</th>
               <th className="px-4 py-3">Ngày đặt</th>
               <th className="px-4 py-3">Người nhận</th>
+              <th className="px-4 py-3">Sản phẩm</th>
               <th className="px-4 py-3">Tổng tiền</th>
               <th className="px-4 py-3">Trạng thái</th>
-              <th className="px-4 py-3">Cập nhật</th>
+              {!isSellerPage && <th className="px-4 py-3">Cập nhật</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -134,9 +136,16 @@ export default function ManageOrders() {
                   <p className="font-medium text-gray-800">{order.recipientName}</p>
                   <p className="text-gray-400 text-xs">{order.recipientPhone}</p>
                 </td>
+                <td className="px-4 py-3 text-xs text-gray-600">
+                  {(order.items || []).map(item => (
+                    <div key={`${order.id}-${item.bookId}`} className="whitespace-nowrap">
+                      {item.bookTitle} x{item.quantity}
+                    </div>
+                  ))}
+                </td>
                 <td className="px-4 py-3 font-semibold text-gray-900">{formatPrice(order.totalAmount)}</td>
                 <td className="px-4 py-3 text-gray-600">{STATUS_LABEL[order.status]}</td>
-                <td className="px-4 py-3">
+                {!isSellerPage && <td className="px-4 py-3">
                   <select
                     value={order.status}
                     onChange={(e) => updateStatus(order.id, e.target.value)}
@@ -146,12 +155,12 @@ export default function ManageOrders() {
                       <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                     ))}
                   </select>
-                </td>
+                </td>}
               </tr>
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">Chưa có đơn hàng nào</td>
+                <td colSpan={isSellerPage ? 6 : 7} className="px-4 py-8 text-center text-gray-400">Chưa có đơn hàng nào</td>
               </tr>
             )}
           </tbody>
@@ -301,3 +310,5 @@ export default function ManageOrders() {
     </div>
   )
 }
+
+

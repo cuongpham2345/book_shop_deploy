@@ -12,13 +12,17 @@ export function NotificationProvider({ children }) {
     if (!isAuthenticated) { setUnreadCount(0); return }
     try {
       const res = await notificationsApi.getUnreadCount()
-      setUnreadCount(res.data?.data ?? 0)
+      setUnreadCount(res.data?.result ?? 0)
     } catch {
       setUnreadCount(0)
     }
   }, [isAuthenticated])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    refresh()
+    const id = setInterval(refresh, 30000)
+    return () => clearInterval(id)
+  }, [refresh])
 
   return (
     <NotificationContext.Provider value={{ unreadCount, refresh }}>

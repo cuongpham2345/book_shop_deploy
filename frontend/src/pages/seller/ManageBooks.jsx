@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { booksApi } from '../../api/books'
 import { categoriesApi } from '../../api/categories'
 import { PageSpinner, Spinner } from '../../components/ui/Spinner'
+import { useNotifications } from '../../context/NotificationContext'
 
 function formatPrice(n) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n)
@@ -16,6 +17,7 @@ const EMPTY_FORM = {
 }
 
 export default function ManageBooks() {
+  const { refresh: refreshNotifications } = useNotifications()
   const [books, setBooks] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -25,14 +27,14 @@ export default function ManageBooks() {
   const [saving, setSaving] = useState(false)
 
   const fetchBooks = () => {
-    booksApi.getAll({ size: 100 })
-      .then((res) => setBooks(res.data.data?.content || []))
+    booksApi.getMyBooks()
+      .then((res) => setBooks(res.data.result || res.data.data || []))
       .finally(() => setLoading(false))
   }
 
   useEffect(() => {
     fetchBooks()
-    categoriesApi.getAll().then((r) => setCategories(r.data.data || []))
+    categoriesApi.getAll().then((r) => setCategories(r.data.result || r.data.data || []))
   }, [])
 
   const openCreate = () => { setEditId(null); setForm(EMPTY_FORM); setShowModal(true) }
@@ -66,10 +68,11 @@ export default function ManageBooks() {
     try {
       if (editId) {
         await booksApi.updateBook(editId, data)
-        toast.success('Cập nhật thành công!')
+        toast.success('Cập nhật sách thành công!')
       } else {
         await booksApi.createBook(data)
         toast.success('Thêm sách thành công!')
+        refreshNotifications()
       }
       setShowModal(false)
       fetchBooks()
@@ -84,10 +87,11 @@ export default function ManageBooks() {
     if (!window.confirm('Xác nhận xóa sách này?')) return
     try {
       await booksApi.deleteBook(id)
-      toast.success('Đã xóa')
+      toast.success('Xóa sách thành công!')
+      refreshNotifications()
       fetchBooks()
     } catch {
-      toast.error('Không thể xóa')
+      toast.error('Không thể xóa sách')
     }
   }
 

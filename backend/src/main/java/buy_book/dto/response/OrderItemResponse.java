@@ -16,6 +16,7 @@ public class OrderItemResponse {
     Long bookId;
     String bookTitle;
     String bookImage;
+    String sellerName;
     Integer quantity;
     BigDecimal unitPrice;
     BigDecimal totalPrice;

@@ -3,6 +3,7 @@ package buy_book.service.impl;
 import buy_book.constant.NotificationType;
 import buy_book.constant.OrderStatus;
 import buy_book.constant.PaymentStatus;
+import buy_book.constant.Role;
 import buy_book.dto.request.AdminCreateOrderItemRequest;
 import buy_book.dto.request.AdminCreateOrderRequest;
 import buy_book.dto.response.OrderItemResponse;
@@ -19,11 +20,14 @@ import buy_book.repository.UserRepository;
 import buy_book.service.AdminOrderService;
 import buy_book.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -35,11 +39,13 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final NotificationService notificationService;
 
     private OrderItemResponse toItemResponse(OrderItem item) {
+        User seller = item.getBook().getSeller();
         return OrderItemResponse.builder()
                 .id(item.getId())
                 .bookId(item.getBook().getId())
                 .bookTitle(item.getBook().getTitle())
                 .bookImage(item.getBook().getImageUrl())
+                .sellerName(seller != null ? (seller.getFullName() != null ? seller.getFullName() : seller.getUsername()) : null)
                 .quantity(item.getQuantity())
                 .unitPrice(item.getUnitPrice())
                 .totalPrice(item.getTotalPrice())
@@ -65,6 +71,34 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .build();
     }
 
+    private OrderResponse toSellerResponse(Order order, Long sellerId) {
+        List<OrderItemResponse> sellerItems = order.getItems().stream()
+                .filter(item -> item.getBook().getSeller() != null
+                        && item.getBook().getSeller().getId().equals(sellerId))
+                .map(this::toItemResponse)
+                .toList();
+        BigDecimal sellerTotal = sellerItems.stream()
+                .map(OrderItemResponse::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return OrderResponse.builder()
+                .id(order.getId())
+                .orderCode(order.getOrderCode())
+                .username(order.getUser().getUsername())
+                .status(order.getStatus())
+                .paymentMethod(order.getPaymentMethod())
+                .paymentStatus(order.getPaymentStatus())
+                .shippingAddress(order.getShippingAddress())
+                .recipientName(order.getRecipientName())
+                .recipientPhone(order.getRecipientPhone())
+                .totalAmount(sellerTotal)
+                .note(order.getNote())
+                .items(sellerItems)
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .build();
+    }
+
     @Override
     public List<OrderResponse> getAllOrders() {
         return orderRepository.findAllOrderByCreatedAtDesc()
@@ -78,6 +112,22 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     }
 
     @Override
+    public List<OrderResponse> getSellerOrders(String sellerUsername) {
+        User seller = userRepository.findByUsername(sellerUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        return orderRepository.findBySellerIdOrderByCreatedAtDesc(seller.getId())
+                .stream().map(order -> toSellerResponse(order, seller.getId())).toList();
+    }
+
+    @Override
+    public List<OrderResponse> getSellerOrdersByStatus(String sellerUsername, OrderStatus status) {
+        User seller = userRepository.findByUsername(sellerUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        return orderRepository.findBySellerIdAndStatusOrderByCreatedAtDesc(seller.getId(), status)
+                .stream().map(order -> toSellerResponse(order, seller.getId())).toList();
+    }
+
+    @Override
     public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
@@ -85,9 +135,49 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     }
 
     @Override
+    @Transactional
     public OrderResponse updateOrderStatus(Long id, OrderStatus status) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        OrderStatus current = order.getStatus();
+
+        if (current == status) return toResponse(order);
+
+        if (current == OrderStatus.CANCELLED || current == OrderStatus.RETURNED) {
+            throw new RuntimeException("Đơn hàng đã " + statusLabel(current) + ", không thể thay đổi trạng thái.");
+        }
+
+        // Whitelist of valid forward transitions (mirrors the UI's VALID_NEXT map)
+        boolean validTransition = switch (current) {
+            case PENDING    -> status == OrderStatus.CONFIRMED  || status == OrderStatus.PROCESSING
+                            || status == OrderStatus.SHIPPING   || status == OrderStatus.DELIVERED
+                            || status == OrderStatus.CANCELLED;
+            case CONFIRMED  -> status == OrderStatus.PROCESSING || status == OrderStatus.SHIPPING
+                            || status == OrderStatus.DELIVERED  || status == OrderStatus.CANCELLED;
+            case PROCESSING -> status == OrderStatus.SHIPPING   || status == OrderStatus.DELIVERED
+                            || status == OrderStatus.CANCELLED;
+            case SHIPPING   -> status == OrderStatus.DELIVERED;
+            case DELIVERED  -> status == OrderStatus.RETURNED;
+            default         -> false;
+        };
+        if (!validTransition) {
+            throw new RuntimeException(
+                    "Không thể chuyển từ \"" + statusLabel(current) + "\" sang \"" + statusLabel(status) + "\".");
+        }
+
+        boolean shouldRestoreInventory = status == OrderStatus.CANCELLED || status == OrderStatus.RETURNED;
+
+        if (shouldRestoreInventory) {
+            for (OrderItem item : order.getItems()) {
+                Book book = item.getBook();
+                book.setStockQuantity(book.getStockQuantity() + item.getQuantity());
+                int currentSold = book.getTotalSold() != null ? book.getTotalSold() : 0;
+                book.setTotalSold(Math.max(0, currentSold - item.getQuantity()));
+                bookRepository.save(book);
+            }
+        }
+
         order.setStatus(status);
         Order saved = orderRepository.save(order);
 
@@ -97,7 +187,37 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 NotificationType.ORDER_STATUS_CHANGED,
                 saved.getId(), saved.getOrderCode());
 
+        notifySellers(saved,
+                "Cập nhật đơn hàng",
+                "Đơn hàng #" + saved.getOrderCode() + " có sản phẩm của bạn đã chuyển sang trạng thái: " + statusLabel(status),
+                NotificationType.ORDER_STATUS_CHANGED);
+
+        String adminUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        userRepository.findByUsername(adminUsername).ifPresent(admin ->
+                notificationService.create(admin,
+                        "Đã cập nhật đơn hàng",
+                        "Bạn đã cập nhật đơn hàng #" + saved.getOrderCode() + " → " + statusLabel(status),
+                        NotificationType.SYSTEM,
+                        saved.getId(), saved.getOrderCode()));
+
         return toResponse(saved);
+    }
+
+    private void notifyAdmins(Order order, String title, String message, NotificationType type) {
+        userRepository.findByRole(Role.ADMIN).forEach(admin ->
+                notificationService.create(admin, title, message, type, order.getId(), order.getOrderCode()));
+    }
+
+    private void notifySellers(Order order, String title, String message, NotificationType type) {
+        Set<User> sellers = new LinkedHashSet<>();
+        order.getItems().forEach(item -> {
+            User seller = item.getBook().getSeller();
+            if (seller != null) {
+                sellers.add(seller);
+            }
+        });
+        sellers.forEach(seller ->
+                notificationService.create(seller, title, message, type, order.getId(), order.getOrderCode()));
     }
 
     @Override
@@ -140,6 +260,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             order.getItems().add(item);
 
             book.setStockQuantity(book.getStockQuantity() - itemReq.getQuantity());
+            book.setTotalSold((book.getTotalSold() != null ? book.getTotalSold() : 0) + itemReq.getQuantity());
             bookRepository.save(book);
 
             total = total.add(lineTotal);
@@ -153,6 +274,16 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 "Đơn hàng #" + saved.getOrderCode() + " đã được tạo bởi Admin.",
                 NotificationType.ORDER_STATUS_CHANGED,
                 saved.getId(), saved.getOrderCode());
+
+        notifyAdmins(saved,
+                "Đơn hàng mới",
+                "Đơn hàng #" + saved.getOrderCode() + " vừa được tạo. Tổng tiền: "
+                        + String.format("%,.0f", saved.getTotalAmount()) + "đ",
+                NotificationType.ORDER_PLACED);
+        notifySellers(saved,
+                "Có đơn hàng chứa sản phẩm của bạn",
+                "Đơn hàng #" + saved.getOrderCode() + " có sản phẩm của bạn. Vui lòng kiểm tra và xử lý.",
+                NotificationType.ORDER_PLACED);
 
         return toResponse(saved);
     }

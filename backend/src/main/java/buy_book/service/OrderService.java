@@ -11,4 +11,6 @@ public interface OrderService {
     CheckoutAllResponse checkoutAll(String username, CheckoutRequest request);
     List<OrderResponse> getOrderHistory(String username);
     OrderResponse getOrderDetail(String username, Long orderId);
+    OrderResponse cancelOrder(String username, Long orderId, String reason);
+    OrderResponse confirmReceived(String username, Long orderId);
 }

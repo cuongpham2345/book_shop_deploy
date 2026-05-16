@@ -432,7 +432,7 @@ export default function ProductDetail() {
               {product.isGift ? (
                 <>
                   <Link
-                    to="/books"
+                    to="/"
                     className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-colors shadow-sm"
                   >
                     <ShoppingCart className="h-5 w-5" /> Đi mua sách để nhận quà này

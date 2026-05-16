@@ -36,4 +36,5 @@ public class BookRequest {
     Integer pageCount;
     String language;
     Long categoryId;
+    String status;
 }

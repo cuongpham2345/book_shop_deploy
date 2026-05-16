@@ -7,18 +7,28 @@ import { BookCard } from '../components/ui/BookCard'
 import { PageSpinner } from '../components/ui/Spinner'
 import type { BookSummary, CategoryResponse } from '../types'
 
+interface CategoryBooks {
+  category: CategoryResponse
+  books: BookSummary[]
+}
+
 export default function Home() {
-  const [books, setBooks] = useState<BookSummary[]>([])
+  const [categoryBooks, setCategoryBooks] = useState<CategoryBooks[]>([])
   const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      booksApi.getAll({ page: 0, size: 8 }),
-      categoriesApi.getAll(),
-    ]).then(([booksRes, catsRes]) => {
-      setBooks(booksRes.data.result.content)
-      setCategories(catsRes.data.result.filter((c) => c.active))
+    categoriesApi.getAll().then(async (catsRes) => {
+      const activeCats = catsRes.data.result.filter((c) => c.active)
+      setCategories(activeCats)
+
+      const results = await Promise.all(
+        activeCats.slice(0, 6).map((cat) =>
+          booksApi.getAll({ page: 0, size: 4, categoryId: cat.id })
+            .then((res) => ({ category: cat, books: res.data.result.content }))
+        )
+      )
+      setCategoryBooks(results.filter((r) => r.books.length > 0))
     }).finally(() => setLoading(false))
   }, [])
 
@@ -67,25 +77,29 @@ export default function Home() {
         </section>
       )}
 
-      {/* Featured books */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Sách nổi bật</h2>
-          <Link to="/books" className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 transition-colors">
-            Xem thêm <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-
-        {books.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">Chưa có sách nào.</div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4">
+      {/* Books grouped by category */}
+      {categoryBooks.map(({ category, books }) => (
+        <section key={category.id} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900">{category.name}</h2>
+            <Link
+              to={`/books?categoryId=${category.id}`}
+              className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 transition-colors"
+            >
+              Xem thêm <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {books.map((book) => (
               <BookCard key={book.id} book={book} />
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      ))}
+
+      {categoryBooks.length === 0 && (
+        <div className="text-center py-16 text-gray-400">Chưa có sách nào.</div>
+      )}
     </div>
   )
 }

@@ -27,7 +27,7 @@ public class AdminOrderController {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .code(200)
                 .message("Tạo đơn hàng thành công")
-                .data(adminOrderService.createOrder(request))
+                .result(adminOrderService.createOrder(request))
                 .build());
     }
 
@@ -39,7 +39,7 @@ public class AdminOrderController {
                 : adminOrderService.getAllOrders();
         return ResponseEntity.ok(ApiResponse.<List<OrderResponse>>builder()
                 .code(200)
-                .data(orders)
+                .result(orders)
                 .build());
     }
 
@@ -47,7 +47,7 @@ public class AdminOrderController {
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .code(200)
-                .data(adminOrderService.getOrderById(id))
+                .result(adminOrderService.getOrderById(id))
                 .build());
     }
 
@@ -58,7 +58,7 @@ public class AdminOrderController {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .code(200)
                 .message("Cập nhật trạng thái đơn hàng thành công")
-                .data(adminOrderService.updateOrderStatus(id, request.getStatus()))
+                .result(adminOrderService.updateOrderStatus(id, request.getStatus()))
                 .build());
     }
 }

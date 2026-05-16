@@ -26,7 +26,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Toaster position="top-right" toastOptions={{ className: 'text-sm' }} />
+        <Toaster position="top-right" toastOptions={{ className: 'text-sm', duration: 4000, error: { duration: 10000 } }} />
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Home />} />
@@ -38,6 +38,7 @@ export default function App() {
             <Route path="cart" element={<RequireAuth><Cart /></RequireAuth>} />
             <Route path="orders" element={<RequireAuth><Orders /></RequireAuth>} />
             <Route path="seller/books" element={<RequireAuth roles={['SELLER', 'ADMIN']}><ManageBooks /></RequireAuth>} />
+            <Route path="seller/orders" element={<RequireAuth roles={['SELLER', 'ADMIN']}><ManageOrders /></RequireAuth>} />
             <Route path="admin/orders" element={<RequireAuth roles={['ADMIN']}><ManageOrders /></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

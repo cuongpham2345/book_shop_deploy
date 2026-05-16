@@ -69,17 +69,18 @@ export default function ManageCategories() {
   const [form, setForm]             = useState(EMPTY)
   const [saving, setSaving]         = useState(false)
   const [deletingId, setDeletingId] = useState(null)
+  const [imgError, setImgError]     = useState(false)
 
   const fetchCategories = () => {
-    categoriesApi.getAll()
-      .then((res) => setCategories(res.data.data || []))
+    categoriesApi.getAllAdmin()
+      .then((res) => setCategories(res.data.result || res.data.data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }
 
   useEffect(() => { fetchCategories() }, [])
 
-  const openCreate = () => { setEditId(null); setForm(EMPTY); setShowModal(true) }
+  const openCreate = () => { setEditId(null); setForm(EMPTY); setImgError(false); setShowModal(true) }
 
   const openEdit = (cat) => {
     setEditId(cat.id)
@@ -88,10 +89,14 @@ export default function ManageCategories() {
       description: cat.description || '',
       imageUrl: cat.imageUrl || '',
     })
+    setImgError(false)
     setShowModal(true)
   }
 
-  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+  const set = (field) => (e) => {
+    if (field === 'imageUrl') setImgError(false)
+    setForm(f => ({ ...f, [field]: e.target.value }))
+  }
 
   const save = async (e) => {
     e.preventDefault()
@@ -114,15 +119,20 @@ export default function ManageCategories() {
     }
   }
 
-  const deleteCategory = async (id) => {
-    if (!window.confirm('Xác nhận xóa danh mục này?')) return
-    setDeletingId(id)
+  const softDelete = async (cat) => {
+    if (!window.confirm(`Xóa danh mục "${cat.name}"? Danh mục sẽ không còn hiển thị.`)) return
+    setDeletingId(cat.id)
     try {
-      await categoriesApi.delete(id)
-      toast.success('Đã xóa danh mục!')
-      setCategories(c => c.filter(x => x.id !== id))
+      await categoriesApi.update(cat.id, {
+        name:        cat.name,
+        description: cat.description || '',
+        imageUrl:    cat.imageUrl    || '',
+        active:      false,
+      })
+      toast.success(`Đã xóa danh mục "${cat.name}"!`)
+      fetchCategories()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xóa thất bại — danh mục đang có sách liên kết')
+      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra')
     } finally {
       setDeletingId(null)
     }
@@ -151,17 +161,19 @@ export default function ManageCategories() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {categories.map((cat) => {
-            const meta = SLUG_META[cat.slug] || DEFAULT_META
+            const meta   = SLUG_META[cat.slug] || DEFAULT_META
+            const active = cat.active !== false
             return (
               <div key={cat.id}
-                className="card p-4 flex items-start gap-4 hover:shadow-md transition-shadow group">
+                className={`card p-4 flex items-start gap-4 hover:shadow-md transition-shadow group border-2
+                  ${active ? 'border-transparent' : 'border-red-100 bg-red-50/20'}`}>
 
                 {/* Ảnh hoặc icon màu */}
                 {cat.imageUrl ? (
                   <img
                     src={cat.imageUrl}
                     alt={cat.name}
-                    className="w-16 h-16 rounded-xl object-cover border border-gray-200 shrink-0"
+                    className={`w-16 h-16 rounded-xl object-cover border border-gray-200 shrink-0 ${!active ? 'opacity-50' : ''}`}
                     onError={(e) => {
                       e.target.style.display = 'none'
                       e.target.nextSibling.style.display = 'flex'
@@ -169,13 +181,22 @@ export default function ManageCategories() {
                   />
                 ) : null}
                 <div
-                  className={`w-16 h-16 ${meta.bg} rounded-xl items-center justify-center shrink-0 ${cat.imageUrl ? 'hidden' : 'flex'}`}>
+                  className={`w-16 h-16 ${meta.bg} rounded-xl items-center justify-center shrink-0
+                    ${cat.imageUrl ? 'hidden' : 'flex'} ${!active ? 'opacity-50' : ''}`}>
                   <meta.icon className={`h-8 w-8 ${meta.text}`} />
                 </div>
 
                 {/* Thông tin */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">{cat.name}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className={`font-semibold truncate ${active ? 'text-gray-900' : 'text-gray-400'}`}>
+                      {cat.name}
+                    </h3>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0
+                      ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                      {active ? 'Hoạt động' : 'Không hoạt động'}
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed">
                     {cat.description || 'Chưa có mô tả'}
                   </p>
@@ -192,8 +213,12 @@ export default function ManageCategories() {
                     className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                     <Pencil className="h-4 w-4" />
                   </button>
-                  <button onClick={() => deleteCategory(cat.id)} disabled={deletingId === cat.id}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+                  <button
+                    onClick={() => softDelete(cat)}
+                    disabled={!active || deletingId === cat.id}
+                    title={active ? 'Xóa danh mục' : 'Danh mục đã không hoạt động'}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50
+                      transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -241,13 +266,20 @@ export default function ManageCategories() {
                 {/* Preview ảnh hoặc icon */}
                 <div className="mt-3 flex items-center gap-3">
                   <span className="text-xs text-gray-400">Xem trước:</span>
-                  {form.imageUrl ? (
-                    <img src={form.imageUrl} alt="preview"
-                      className="h-14 w-14 rounded-xl object-cover border border-gray-200"
-                      onError={(e) => { e.target.style.display = 'none' }} />
+                  {form.imageUrl && !imgError ? (
+                    <img
+                      src={form.imageUrl}
+                      alt="preview"
+                      className="h-20 w-20 rounded-xl object-cover border border-gray-200 shadow-sm"
+                      onError={() => setImgError(true)}
+                    />
                   ) : (
-                    <div className="h-14 w-14 bg-gray-100 rounded-xl flex items-center justify-center">
-                      <Tag className="h-6 w-6 text-gray-400" />
+                    <div className="h-20 w-20 bg-gray-100 rounded-xl flex items-center justify-center border border-dashed border-gray-300">
+                      {form.imageUrl && imgError ? (
+                        <span className="text-[10px] text-red-400 text-center px-1 leading-tight">Không tải được ảnh</span>
+                      ) : (
+                        <Tag className="h-6 w-6 text-gray-400" />
+                      )}
                     </div>
                   )}
                 </div>

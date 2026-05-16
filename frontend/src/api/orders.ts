@@ -36,6 +36,9 @@ export const ordersApi = {
   getAllOrders: () =>
     api.get<ApiResponse<OrderResponse[]>>('/api/admin/orders'),
 
+  getSellerOrders: () =>
+    api.get<ApiResponse<OrderResponse[]>>('/api/seller/orders'),
+
   updateStatus: (orderId: number, status: string) =>
     api.patch<ApiResponse<OrderResponse>>(`/api/admin/orders/${orderId}/status`, { status }),
 

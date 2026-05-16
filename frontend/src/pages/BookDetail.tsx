@@ -56,7 +56,7 @@ function CheckoutModal({ book, qty, onClose }: { book: BookDetail; qty: number; 
         recipientPhone: form.recipientPhone,
         paymentMethod: form.paymentMethod as any,
         note: form.note,
-        selectedItemIds: cartItem ? [cartItem.id] : undefined,
+        selectedItemIds: cartItem ? [cartItem.cartItemId] : undefined,
       })
       onClose()
       toast.success('Đặt hàng thành công!')

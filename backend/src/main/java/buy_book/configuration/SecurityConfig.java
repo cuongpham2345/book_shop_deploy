@@ -17,6 +17,10 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.List;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -46,21 +50,28 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(authorize -> authorize
-                        // Public endpoints
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/books", "/api/books/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/books", "/api/books/**", "/api/categories", "/api/categories/**").permitAll()
-
-                        .requestMatchers(HttpMethod.GET, "/api/books", "/api/books/**",
-                                "/api/categories", "/api/categories/**").permitAll()
+                        // Static assets & SPA shell
+                        .requestMatchers(HttpMethod.GET,
+                                "/", "/index.html", "/favicon.*", "/vite.svg",
+                                "/assets/**", "/*.js", "/*.css", "/*.svg", "/*.ico", "/*.png", "/*.webp"
+                        ).permitAll()
+                        // SPA frontend routes (HTML served by SpaController → index.html)
+                        .requestMatchers(HttpMethod.GET,
+                                "/books", "/books/**", "/product/**",
+                                "/login", "/register",
+                                "/cart", "/orders", "/notifications",
+                                "/profile",
+                                "/seller/**", "/admin/**"
+                        ).permitAll()
+                        // Public API
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/logout").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/books", "/api/books/**", "/api/categories", "/api/categories/**").permitAll()
                         // Admin only
                         .requestMatchers("/api/admin/**").hasAuthority("SCOPE_ADMIN")
-
                         // Admin và Seller
                         .requestMatchers("/api/seller/**").hasAnyAuthority("SCOPE_ADMIN", "SCOPE_SELLER")
-
                         // Còn lại phải đăng nhập
                         .anyRequest().authenticated()
                 )
@@ -83,5 +94,22 @@ public class SecurityConfig {
                 .build();
         JWKSource<SecurityContext> jwks = new ImmutableJWKSet<>(new JWKSet(jwk));
         return new NimbusJwtEncoder(jwks);
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://book-shop-deploy.up.railway.app" // ← cập nhật sau khi có domain thật
+        ));
+        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }

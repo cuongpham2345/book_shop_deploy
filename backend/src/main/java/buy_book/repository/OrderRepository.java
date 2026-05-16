@@ -22,4 +22,23 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query(value = "SELECT * FROM orders WHERE status = :status ORDER BY created_at DESC", nativeQuery = true)
     List<Order> findByStatus(@Param("status") String status);
+
+    @Query("""
+            select distinct o from Order o
+            join o.items i
+            join i.book b
+            where b.seller.id = :sellerId
+            order by o.createdAt desc
+            """)
+    List<Order> findBySellerIdOrderByCreatedAtDesc(@Param("sellerId") Long sellerId);
+
+    @Query("""
+            select distinct o from Order o
+            join o.items i
+            join i.book b
+            where b.seller.id = :sellerId and o.status = :status
+            order by o.createdAt desc
+            """)
+    List<Order> findBySellerIdAndStatusOrderByCreatedAtDesc(@Param("sellerId") Long sellerId,
+                                                            @Param("status") OrderStatus status);
 }

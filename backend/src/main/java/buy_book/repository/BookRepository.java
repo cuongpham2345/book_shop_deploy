@@ -3,6 +3,7 @@ package buy_book.repository;
 import buy_book.entity.Book;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -16,6 +17,7 @@ import java.util.Optional;
 public interface BookRepository extends JpaRepository<Book, Long>, JpaSpecificationExecutor<Book> {
     Optional<Book> findByIsbn(String isbn);
     boolean existsByIsbn(String isbn);
+    boolean existsByIsbnAndIdNot(String isbn, Long id);
 
     Page<Book> findByActiveTrue(Pageable pageable);
     Page<Book> findByCategoryIdAndActiveTrue(Long categoryId, Pageable pageable);
@@ -34,4 +36,10 @@ public interface BookRepository extends JpaRepository<Book, Long>, JpaSpecificat
            "LOWER(b.author) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Book> searchByCategoryAndKeyword(@Param("categoryId") Long categoryId,
                                           @Param("keyword") String keyword, Pageable pageable);
+
+    Page<Book> findBySellerId(Long sellerId, Pageable pageable);
+
+    List<Book> findBySellerIdOrderByCreatedAtDesc(Long sellerId);
+
+    long countBySellerId(Long sellerId);
 }

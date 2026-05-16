@@ -5,7 +5,10 @@ import buy_book.dto.response.ApiResponse;
 import buy_book.dto.response.BookDetailResponse;
 import buy_book.dto.response.BookSummaryResponse;
 import buy_book.dto.response.PageResponse;
+import buy_book.service.AuditLogService;
 import buy_book.service.BookService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +17,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,6 +27,8 @@ import java.math.BigDecimal;
 public class BookController {
 
     private final BookService bookService;
+    private final AuditLogService auditLogService;
+    private final ObjectMapper objectMapper;
 
     // ==================== PUBLIC ====================
 
@@ -32,7 +40,7 @@ public class BookController {
 
         return ResponseEntity.ok(ApiResponse.<PageResponse<BookSummaryResponse>>builder()
                 .code(200)
-                .data(bookService.getAllBooks(page, size, sortBy))
+                .result(bookService.getAllBooks(page, size, sortBy))
                 .build());
     }
 
@@ -47,11 +55,12 @@ public class BookController {
             @RequestParam(required = false) Boolean hasDiscount,
             @RequestParam(defaultValue = "newest") String sortBy,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size) {
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(required = false) String sellerName) {
 
         return ResponseEntity.ok(ApiResponse.<PageResponse<BookSummaryResponse>>builder()
                 .code(200)
-                .data(bookService.filterBooks(title, author, publishYear, minPrice, maxPrice, categoryId, hasDiscount, sortBy, page, size))
+                .result(bookService.filterBooks(title, author, publishYear, minPrice, maxPrice, categoryId, hasDiscount, sortBy, page, size, sellerName))
                 .build());
     }
 
@@ -63,7 +72,7 @@ public class BookController {
 
         return ResponseEntity.ok(ApiResponse.<PageResponse<BookSummaryResponse>>builder()
                 .code(200)
-                .data(bookService.searchBooks(keyword, page, size))
+                .result(bookService.searchBooks(keyword, page, size))
                 .build());
     }
 
@@ -75,7 +84,7 @@ public class BookController {
 
         return ResponseEntity.ok(ApiResponse.<PageResponse<BookSummaryResponse>>builder()
                 .code(200)
-                .data(bookService.getBooksByCategory(categoryId, page, size))
+                .result(bookService.getBooksByCategory(categoryId, page, size))
                 .build());
     }
 
@@ -83,7 +92,7 @@ public class BookController {
     public ResponseEntity<ApiResponse<BookDetailResponse>> getBookDetail(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.<BookDetailResponse>builder()
                 .code(200)
-                .data(bookService.getBookDetail(id))
+                .result(bookService.getBookDetail(id))
                 .build());
     }
 
@@ -92,13 +101,23 @@ public class BookController {
     @PostMapping("/api/seller/books")
     public ResponseEntity<ApiResponse<BookDetailResponse>> createBook(
             @Valid @RequestBody BookRequest request,
-            @AuthenticationPrincipal Jwt jwt) {
+            @AuthenticationPrincipal Jwt jwt,
+            HttpServletRequest httpRequest) {
 
         String username = jwt.getSubject();
+        BookDetailResponse created = bookService.createBook(request, username);
+
+        auditLogService.log(username, "CREATE", "BOOK",
+                created.getId(), created.getTitle(),
+                "Thêm sách mới",
+                null,
+                toJson(bookMap(created)),
+                getClientIp(httpRequest));
+
         return ResponseEntity.ok(ApiResponse.<BookDetailResponse>builder()
                 .code(200)
                 .message("Thêm sách thành công")
-                .data(bookService.createBook(request, username))
+                .result(created)
                 .build());
     }
 
@@ -106,22 +125,96 @@ public class BookController {
     public ResponseEntity<ApiResponse<BookDetailResponse>> updateBook(
             @PathVariable Long id,
             @Valid @RequestBody BookRequest request,
-            @AuthenticationPrincipal Jwt jwt) {
+            @AuthenticationPrincipal Jwt jwt,
+            HttpServletRequest httpRequest) {
 
         String username = jwt.getSubject();
+        BookDetailResponse old = bookService.getBookDetailAdmin(id);
+        BookDetailResponse updated = bookService.updateBook(id, request, username);
+
+        auditLogService.log(username, "UPDATE", "BOOK",
+                updated.getId(), updated.getTitle(),
+                "Cập nhật thông tin sách",
+                toJson(bookMap(old)),
+                toJson(bookMap(updated)),
+                getClientIp(httpRequest));
+
         return ResponseEntity.ok(ApiResponse.<BookDetailResponse>builder()
                 .code(200)
                 .message("Cập nhật sách thành công")
-                .data(bookService.updateBook(id, request, username))
+                .result(updated)
                 .build());
     }
 
     @DeleteMapping("/api/seller/books/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteBook(@PathVariable Long id) {
-        bookService.deleteBook(id);
+    public ResponseEntity<ApiResponse<Void>> deleteBook(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt,
+            HttpServletRequest httpRequest) {
+
+        String username = jwt != null ? jwt.getSubject() : "system";
+        BookDetailResponse book = bookService.getBookDetailAdmin(id);
+        bookService.deleteBook(id, username);
+
+        auditLogService.log(username, "DELETE", "BOOK",
+                book.getId(), book.getTitle(),
+                "Ẩn sách khỏi hệ thống",
+                toJson(bookMap(book)),
+                null,
+                getClientIp(httpRequest));
+
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .code(200)
                 .message("Xóa sách thành công")
                 .build());
+    }
+
+    @GetMapping("/api/seller/books")
+    public ResponseEntity<ApiResponse<List<BookDetailResponse>>> getMyBooks(
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(ApiResponse.<List<BookDetailResponse>>builder()
+                .code(200)
+                .result(bookService.getMyBooks(jwt.getSubject()))
+                .build());
+    }
+
+    @GetMapping("/api/admin/sellers/{sellerId}/books")
+    public ResponseEntity<ApiResponse<PageResponse<BookSummaryResponse>>> getBooksBySeller(
+            @PathVariable Long sellerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        return ResponseEntity.ok(ApiResponse.<PageResponse<BookSummaryResponse>>builder()
+                .code(200)
+                .result(bookService.getBooksBySeller(sellerId, page, size))
+                .build());
+    }
+
+    // ── helpers ──────────────────────────────────────────────
+
+    private Map<String, Object> bookMap(BookDetailResponse b) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("title",         nvl(b.getTitle()));
+        m.put("author",        nvl(b.getAuthor()));
+        m.put("publisher",     nvl(b.getPublisher()));
+        m.put("price",         b.getPrice() != null ? b.getPrice() : BigDecimal.ZERO);
+        m.put("discountPrice", b.getDiscountPrice() != null ? b.getDiscountPrice() : "");
+        m.put("stockQuantity", b.getStockQuantity() != null ? b.getStockQuantity() : 0);
+        m.put("category",      nvl(b.getCategoryName()));
+        m.put("status",        nvl(b.getStatus()));
+        return m;
+    }
+
+    private String nvl(String s) { return s != null ? s : ""; }
+
+    private String toJson(Object obj) {
+        try { return objectMapper.writeValueAsString(obj); }
+        catch (Exception e) { return "{}"; }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isBlank()) return request.getRemoteAddr();
+        return ip.split(",")[0].trim();
     }
 }

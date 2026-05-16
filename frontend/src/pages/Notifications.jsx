@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Bell, CheckCheck, Package, ShoppingBag, Info, ChevronRight } from 'lucide-react'
 import { notificationsApi } from '../api/notifications'
 import { useNotifications } from '../context/NotificationContext'
+import { useAuth } from '../context/AuthContext'
 
 const TYPE_ICON = {
   ORDER_PLACED: <ShoppingBag className="h-5 w-5 text-indigo-500" />,
@@ -28,12 +29,19 @@ export default function Notifications() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const { refresh: refreshCount } = useNotifications()
+  const { hasRole } = useAuth()
+
+  const orderLink = hasRole('ADMIN')
+    ? '/admin/orders'
+    : hasRole('SELLER')
+      ? '/seller/orders'
+      : '/orders'
 
   const load = async () => {
     setLoading(true)
     try {
       const res = await notificationsApi.getAll()
-      setItems(res.data?.data ?? [])
+      setItems(res.data?.result ?? [])
     } catch {
       setItems([])
     } finally {
@@ -144,7 +152,7 @@ export default function Notifications() {
                   <span className="text-xs text-gray-400">{formatDate(n.createdAt)}</span>
                   {n.relatedOrderId && (
                     <Link
-                      to="/orders"
+                      to={orderLink}
                       onClick={e => e.stopPropagation()}
                       className="flex items-center gap-0.5 text-xs text-indigo-500 hover:text-indigo-700 font-medium"
                     >

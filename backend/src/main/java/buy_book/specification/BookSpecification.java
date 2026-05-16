@@ -3,6 +3,7 @@ package buy_book.specification;
 import buy_book.entity.Book;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.JoinType;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -17,7 +18,8 @@ public class BookSpecification {
             BigDecimal minPrice,
             BigDecimal maxPrice,
             Long categoryId,
-            Boolean hasDiscount
+            Boolean hasDiscount,
+            String sellerName
     ) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -49,6 +51,11 @@ public class BookSpecification {
                     cb.isNotNull(root.get("discountPrice")),
                     cb.lessThan(root.get("discountPrice"), root.get("price"))
                 ));
+            }
+            if (sellerName != null && !sellerName.isBlank()) {
+                Join<Object, Object> seller = root.join("seller", JoinType.LEFT);
+                predicates.add(cb.like(cb.lower(seller.get("fullName")),
+                        "%" + sellerName.trim().toLowerCase() + "%"));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

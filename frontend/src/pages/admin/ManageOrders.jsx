@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Plus, X, Search, Trash2, Package } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ordersApi } from '../../api/orders'
@@ -294,8 +295,18 @@ function CreateOrderModal({ onClose, onCreated, users }) {
   )
 }
 
+const VALID_NEXT = {
+  PENDING:    ['CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'CANCELLED'],
+  CONFIRMED:  ['PROCESSING', 'SHIPPING', 'DELIVERED', 'CANCELLED'],
+  PROCESSING: ['SHIPPING', 'DELIVERED', 'CANCELLED'],
+  SHIPPING:   ['DELIVERED'],
+  DELIVERED:  ['RETURNED'],
+}
+
 // ── Trang chính ─────────────────────────────────────────────────
 export default function ManageOrders() {
+  const location = useLocation()
+  const isSellerPage = location.pathname.startsWith('/seller/orders')
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -304,7 +315,8 @@ export default function ManageOrders() {
 
   const fetchOrders = () => {
     setLoading(true)
-    ordersApi.getAllOrders()
+    const request = isSellerPage ? ordersApi.getSellerOrders() : ordersApi.getAllOrders()
+    request
       .then((res) => setOrders(res.data.result || []))
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -312,16 +324,17 @@ export default function ManageOrders() {
 
   useEffect(() => {
     fetchOrders()
-    usersApi.getAll().then(res => setUsers(res.data.result || []))
-  }, [])
+    if (!isSellerPage) usersApi.getAll().then(res => setUsers(res.data.result || []))
+  }, [isSellerPage])
 
-  const updateStatus = async (orderId, status) => {
+  const updateStatus = async (orderId, currentStatus, newStatus) => {
+    if (newStatus === currentStatus) return
     try {
-      await ordersApi.updateStatus(orderId, status)
+      await ordersApi.updateStatus(orderId, newStatus)
       toast.success('Cập nhật trạng thái thành công!')
       fetchOrders()
-    } catch {
-      toast.error('Cập nhật thất bại')
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Cập nhật thất bại')
     }
   }
 
@@ -333,13 +346,15 @@ export default function ManageOrders() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý đơn hàng</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{isSellerPage ? 'Đơn hàng của shop' : 'Quản lý đơn hàng'}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{orders.length} đơn hàng</p>
         </div>
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors shadow-sm">
-          <Plus className="h-4 w-4" /> Tạo đơn hàng
-        </button>
+        {!isSellerPage && (
+          <button onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors shadow-sm">
+            <Plus className="h-4 w-4" /> Tạo đơn hàng
+          </button>
+        )}
       </div>
 
       {/* Filter trạng thái */}
@@ -366,17 +381,19 @@ export default function ManageOrders() {
             <tr className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
               <th className="px-4 py-3">Mã đơn</th>
               <th className="px-4 py-3">Ngày đặt</th>
-              <th className="px-4 py-3">Khách hàng</th>
+              {!isSellerPage && <th className="px-4 py-3">Khách hàng</th>}
               <th className="px-4 py-3">Người nhận</th>
+              {!isSellerPage && <th className="px-4 py-3">Shop</th>}
+              <th className="px-4 py-3">Sản phẩm</th>
               <th className="px-4 py-3">Tổng tiền</th>
               <th className="px-4 py-3">Trạng thái</th>
-              <th className="px-4 py-3">Cập nhật</th>
+              {!isSellerPage && <th className="px-4 py-3">Cập nhật</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {displayed.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-16 text-center text-gray-400">
+                <td colSpan={isSellerPage ? 6 : 9} className="px-4 py-16 text-center text-gray-400">
                   <Package className="h-10 w-10 mx-auto mb-2 text-gray-300" />
                   Không có đơn hàng nào
                 </td>
@@ -385,10 +402,22 @@ export default function ManageOrders() {
               <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-700">{order.orderCode}</td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(order.createdAt)}</td>
-                <td className="px-4 py-3 text-gray-600 text-xs">{order.username}</td>
+                {!isSellerPage && <td className="px-4 py-3 text-gray-600 text-xs">{order.username}</td>}
                 <td className="px-4 py-3">
                   <p className="font-medium text-gray-800">{order.recipientName}</p>
                   <p className="text-gray-400 text-xs">{order.recipientPhone}</p>
+                </td>
+                {!isSellerPage && (
+                  <td className="px-4 py-3 text-xs text-gray-700">
+                    {[...new Set((order.items || []).map(i => i.sellerName).filter(Boolean))].join(', ') || '—'}
+                  </td>
+                )}
+                <td className="px-4 py-3 text-xs text-gray-600">
+                  {(order.items || []).map(item => (
+                    <div key={`${order.id}-${item.bookId}`} className="whitespace-nowrap">
+                      {item.bookTitle} x{item.quantity}
+                    </div>
+                  ))}
                 </td>
                 <td className="px-4 py-3 font-semibold text-gray-900">{fmt(order.totalAmount)}</td>
                 <td className="px-4 py-3">
@@ -396,14 +425,22 @@ export default function ManageOrders() {
                     {STATUS_LABEL[order.status]}
                   </span>
                 </td>
-                <td className="px-4 py-3">
-                  <select value={order.status} onChange={(e) => updateStatus(order.id, e.target.value)}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
-                    {Object.entries(STATUS_LABEL).map(([s, label]) => (
-                      <option key={s} value={s}>{label}</option>
-                    ))}
-                  </select>
-                </td>
+                {!isSellerPage && (
+                  <td className="px-4 py-3">
+                    {['CANCELLED', 'RETURNED'].includes(order.status) ? (
+                      <span className="text-xs text-gray-400 italic">Đã kết thúc</span>
+                    ) : (
+                    <select value={order.status} onChange={(e) => updateStatus(order.id, order.status, e.target.value)}
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+                      {Object.entries(STATUS_LABEL)
+                        .filter(([s]) => s === order.status || (VALID_NEXT[order.status] ?? []).includes(s))
+                        .map(([s, label]) => (
+                          <option key={s} value={s}>{label}</option>
+                        ))}
+                    </select>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -416,3 +453,6 @@ export default function ManageOrders() {
     </div>
   )
 }
+
+
+

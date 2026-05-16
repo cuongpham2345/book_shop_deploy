@@ -1,11 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
-  Search, ChevronDown, ChevronUp, SlidersHorizontal, X, Zap,
-  BookOpen, Ghost, BookHeart, BookType, Smile, Church, Layers,
-  BookMarked, Lightbulb, BarChart2, FlaskConical,
-  Globe, Baby, Brain, Palette, Heart, Languages,
-  TrendingUp, Star, Clock, ChevronLeft, ChevronRight,
+  Search, X, Zap,
+  BookOpen, TrendingUp, Star, ChevronLeft, ChevronRight,
   GraduationCap, Gift, Mail, Package,
 } from 'lucide-react'
 import { booksApi } from '../api/books'
@@ -15,26 +12,6 @@ import { Pagination } from '../components/ui/Pagination'
 import { PageSpinner } from '../components/ui/Spinner'
 import { SPOTLIGHT_SECTIONS } from '../data/spotlightProducts'
 
-const CAT_META = {
-  'van-hoc':            { icon: BookMarked,   color: 'text-violet-600', bg: 'bg-violet-50',  border: 'border-violet-200' },
-  'ky-nang-song':       { icon: Lightbulb,    color: 'text-amber-600',  bg: 'bg-amber-50',   border: 'border-amber-200'  },
-  'kinh-te-kinh-doanh': { icon: BarChart2,    color: 'text-emerald-600',bg: 'bg-emerald-50', border: 'border-emerald-200'},
-  'khoa-hoc-cong-nghe': { icon: FlaskConical, color: 'text-sky-600',    bg: 'bg-sky-50',     border: 'border-sky-200'    },
-  'lich-su-dia-ly':     { icon: Globe,        color: 'text-teal-600',   bg: 'bg-teal-50',    border: 'border-teal-200'   },
-  'thieu-nhi':          { icon: Baby,         color: 'text-pink-600',   bg: 'bg-pink-50',    border: 'border-pink-200'   },
-  'tam-ly-hoc':         { icon: Brain,        color: 'text-indigo-600', bg: 'bg-indigo-50',  border: 'border-indigo-200' },
-  'nghe-thuat':         { icon: Palette,      color: 'text-rose-600',   bg: 'bg-rose-50',    border: 'border-rose-200'   },
-  'suc-khoe-the-thao':  { icon: Heart,        color: 'text-red-600',    bg: 'bg-red-50',     border: 'border-red-200'    },
-  'ngoai-ngu':          { icon: Languages,    color: 'text-cyan-600',   bg: 'bg-cyan-50',    border: 'border-cyan-200'   },
-  'truyen-kinh-di':     { icon: Ghost,        color: 'text-gray-700',   bg: 'bg-gray-50',    border: 'border-gray-200'   },
-  'truyen-tre-em':      { icon: BookHeart,    color: 'text-yellow-600', bg: 'bg-yellow-50',  border: 'border-yellow-200' },
-  'tieu-thuyet':        { icon: BookType,     color: 'text-purple-600', bg: 'bg-purple-50',  border: 'border-purple-200' },
-  'manga-comic':        { icon: Layers,       color: 'text-orange-600', bg: 'bg-orange-50',  border: 'border-orange-200' },
-  'trinh-tham':         { icon: Search,       color: 'text-slate-600',  bg: 'bg-slate-50',   border: 'border-slate-200'  },
-  'ton-giao-tam-linh':  { icon: Church,       color: 'text-lime-700',   bg: 'bg-lime-50',    border: 'border-lime-200'   },
-  'hai-huoc-giai-tri':  { icon: Smile,        color: 'text-fuchsia-600',bg: 'bg-fuchsia-50', border: 'border-fuchsia-200'},
-}
-
 const SORT_OPTIONS = [
   { value: 'newest',      label: 'Mới nhất'         },
   { value: 'best_seller', label: 'Bán chạy nhất'    },
@@ -42,12 +19,6 @@ const SORT_OPTIONS = [
   { value: 'price_asc',   label: 'Giá thấp → cao'  },
   { value: 'price_desc',  label: 'Giá cao → thấp'  },
   { value: 'title_asc',   label: 'Tên A → Z'       },
-]
-
-const QUICK_TABS = [
-  { id: 'newest',      label: 'Mới nhất',     icon: Clock,      sortBy: 'newest',      discount: false },
-  { id: 'best_seller', label: 'Bán chạy',     icon: TrendingUp, sortBy: 'best_seller', discount: false },
-  { id: 'top_rated',   label: 'Đánh giá cao', icon: Star,       sortBy: 'rating',      discount: false },
 ]
 
 // icon map cho từng section (icon là React component, không để trong data file)
@@ -62,37 +33,52 @@ function formatPrice(n) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n)
 }
 
+function buildBookListUrl(params) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value))
+    }
+  })
+  return `/books?${query.toString()}`
+}
+
 export default function Home() {
-  const navigate  = useNavigate()
-  const gridRef   = useRef(null)
+  const gridRef = useRef(null)
 
-  const [books, setBooks]                     = useState([])
-  const [flashBooks, setFlashBooks]           = useState([])
-  const [bestSellerBooks, setBestSellerBooks] = useState([])
-  const [topRatedBooks, setTopRatedBooks]     = useState([])
-  const [categories, setCategories]           = useState([])
-  const [totalPages, setTotalPages]           = useState(0)
-  const [totalElements, setTotalElements]     = useState(0)
-  const [loading, setLoading]                 = useState(true)
+  // ── Section books ─────────────────────────────────────────────
+  const [flashBooks,       setFlashBooks]       = useState([])
+  const [bestSellerBooks,  setBestSellerBooks]  = useState([])
+  const [topRatedBooks,    setTopRatedBooks]    = useState([])
+  const [categories,       setCategories]       = useState([])
 
-  const [activeCatId, setActiveCatId]     = useState(null)
-  const [sortBy, setSortBy]               = useState('newest')
-  const [onlyDiscount, setOnlyDiscount]   = useState(false)
-  const [activeTab, setActiveTab]         = useState('newest')
-  const [page, setPage]                   = useState(0)
-  const [catOpen, setCatOpen]             = useState(true)
-  const [mobileCatOpen, setMobileCatOpen] = useState(false)
-  const [searchQ, setSearchQ]             = useState('')
+  // ── Main grid ─────────────────────────────────────────────────
+  const [books,         setBooks]         = useState([])
+  const [totalPages,    setTotalPages]    = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [loading,       setLoading]       = useState(true)
+  const [page,          setPage]          = useState(0)
 
-  // load categories once
+  // ── Filter inputs (what user types – not applied until click) ─
+  const [catInput,      setCatInput]      = useState('')
+  const [sortInput,     setSortInput]     = useState('newest')
+  const [discountInput, setDiscountInput] = useState(false)
+  const [titleInput,    setTitleInput]    = useState('')
+  const [authorInput,   setAuthorInput]   = useState('')
+  const [yearInput,     setYearInput]     = useState('')
+
+  // ── Applied filters (these trigger the fetch) ─────────────────
+  const [applied, setApplied] = useState({
+    categoryId: null, sortBy: 'newest', hasDiscount: false,
+    title: '', author: '', year: '',
+  })
+
+  // load categories + section rows once
   useEffect(() => {
     categoriesApi.getAll()
       .then((res) => setCategories(res.data.data || []))
       .catch(console.error)
-  }, [])
 
-  // load flash sale, best seller, top rated books once
-  useEffect(() => {
     booksApi.filter({ hasDiscount: true, size: 12, sortBy: 'rating' })
       .then((res) => setFlashBooks(res.data.data?.content || []))
       .catch(() => {})
@@ -104,12 +90,16 @@ export default function Home() {
       .catch(() => {})
   }, [])
 
-  // load books whenever filter changes
+  // fetch main grid when applied filters or page changes
   const fetchBooks = useCallback(() => {
     setLoading(true)
-    const params = { page, size: 12, sortBy }
-    if (activeCatId) params.categoryId = activeCatId
-    if (onlyDiscount) params.hasDiscount = true
+    const { categoryId, sortBy, hasDiscount, title, author, year } = applied
+    const params = { page, size: 10, sortBy }
+    if (categoryId)  params.categoryId  = categoryId
+    if (hasDiscount) params.hasDiscount = true
+    if (title)       params.title       = title
+    if (author)      params.author      = author
+    if (year)        params.publishYear = Number(year)
     booksApi.filter(params)
       .then((res) => {
         const d = res.data.data || {}
@@ -119,64 +109,115 @@ export default function Home() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [activeCatId, sortBy, onlyDiscount, page])
+  }, [applied, page])
 
   useEffect(() => { fetchBooks() }, [fetchBooks])
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    if (searchQ.trim()) navigate(`/books?q=${encodeURIComponent(searchQ.trim())}`)
-  }
-
-  const selectCat = (id) => {
-    setActiveCatId(id)
-    setPage(0)
-    setMobileCatOpen(false)
-    gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  const applyQuickTab = (tab) => {
-    setActiveTab(tab.id)
-    setSortBy(tab.sortBy)
-    setOnlyDiscount(tab.discount)
+  const applyFilters = () => {
+    setApplied({
+      categoryId:  catInput ? Number(catInput) : null,
+      sortBy:      sortInput,
+      hasDiscount: discountInput,
+      title:       titleInput.trim(),
+      author:      authorInput.trim(),
+      year:        yearInput.trim(),
+    })
     setPage(0)
     gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const activeCatName = categories.find((c) => c.id === activeCatId)?.name
+  const clearFilters = () => {
+    setCatInput(''); setSortInput('newest'); setDiscountInput(false)
+    setTitleInput(''); setAuthorInput(''); setYearInput('')
+    setApplied({ categoryId: null, sortBy: 'newest', hasDiscount: false, title: '', author: '', year: '' })
+    setPage(0)
+  }
+
+  const hasActiveFilter =
+    applied.categoryId || applied.hasDiscount || applied.title ||
+    applied.author     || applied.year        || applied.sortBy !== 'newest'
+
+  const categoryUrlBySlug = (slug) => {
+    const category = categories.find((c) => c.slug === slug)
+    return category
+      ? buildBookListUrl({ section: slug, categoryId: category.id, categorySlug: slug })
+      : buildBookListUrl({ section: slug, categorySlug: slug })
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
 
       {/* ── HERO ─────────────────────────────────────── */}
-      <section className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col items-center gap-5">
-          <div className="text-center">
-            <h1 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Khám phá <span className="text-amber-300">thế giới sách</span>
+      <section className="relative bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 text-white overflow-hidden">
+        {/* Decorative blobs */}
+        <div className="pointer-events-none absolute -top-20 -right-20 w-96 h-96 rounded-full bg-violet-500/25 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 -left-16 w-72 h-72 rounded-full bg-indigo-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute top-1/2 left-1/3 w-56 h-56 rounded-full bg-amber-400/10 blur-2xl -translate-y-1/2" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex items-center gap-10">
+
+          {/* Left – text */}
+          <div className="flex-1 min-w-0">
+            <div className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 text-white/90 text-xs font-semibold px-3 py-1.5 rounded-full mb-5 backdrop-blur-sm">
+              <BookOpen className="h-3.5 w-3.5 text-amber-300" />
+              Thư viện sách hàng đầu Việt Nam
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight mb-3 tracking-tight">
+              Khám phá
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-orange-300 to-yellow-200">
+                thế giới sách
+              </span>
             </h1>
-            <p className="text-white/70 mt-1 text-sm">
-              {totalElements > 0 ? `${totalElements} đầu sách đang chờ bạn` : 'Hàng nghìn đầu sách đa thể loại'}
+
+            <p className="text-white/65 text-sm sm:text-base mb-7 max-w-xs sm:max-w-sm leading-relaxed">
+              {totalElements > 0
+                ? `${totalElements.toLocaleString('vi-VN')} đầu sách đa thể loại – từ văn học, khoa học đến kỹ năng sống.`
+                : 'Hàng nghìn đầu sách đa thể loại – từ văn học, khoa học đến kỹ năng sống.'}
             </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95"
+              >
+                <BookOpen className="h-4 w-4" />
+                Khám phá ngay
+              </button>
+              <a
+                href="#flash-sale"
+                className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all backdrop-blur-sm"
+              >
+                <Zap className="h-4 w-4 text-rose-300 fill-rose-300" />
+                Flash Sale
+              </a>
+            </div>
+
+            {/* Stats chips */}
+            {totalElements > 0 && (
+              <div className="flex flex-wrap gap-2 mt-6">
+                <span className="bg-white/10 border border-white/15 text-white/80 text-xs px-2.5 py-1 rounded-full backdrop-blur-sm">
+                  📚 {totalElements.toLocaleString('vi-VN')} đầu sách
+                </span>
+                {categories.length > 0 && (
+                  <span className="bg-white/10 border border-white/15 text-white/80 text-xs px-2.5 py-1 rounded-full backdrop-blur-sm">
+                    🏷️ {categories.length} danh mục
+                  </span>
+                )}
+                <span className="bg-white/10 border border-white/15 text-white/80 text-xs px-2.5 py-1 rounded-full backdrop-blur-sm">
+                  ⚡ Giao hàng toàn quốc
+                </span>
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSearch} className="w-full max-w-xl">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
-                placeholder="Tìm theo tên sách, tác giả, thể loại..."
-                className="w-full pl-12 pr-28 py-3 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-lg"
-              />
-              <button
-                type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
-              >
-                Tìm kiếm
-              </button>
-            </div>
-          </form>
+          {/* Right – staggered book cover mosaic (lg+) */}
+          <div className="hidden lg:flex shrink-0 items-center gap-3 py-2">
+            <HeroBookColumn books={[flashBooks[0], flashBooks[1]]} rotates={[-4, 3]} offsetClass="mt-6" />
+            <HeroBookColumn books={[bestSellerBooks[0], bestSellerBooks[1]]} rotates={[2, -3]} offsetClass="" />
+            <HeroBookColumn books={[topRatedBooks[0], topRatedBooks[1]]} rotates={[-2, 4]} offsetClass="mt-10" />
+          </div>
         </div>
       </section>
 
@@ -184,7 +225,7 @@ export default function Home() {
 
         {/* ── FLASH SALE ─────────────────────────────── */}
         {flashBooks.length > 0 && (
-          <section className="mt-6">
+          <section id="flash-sale" className="mt-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 bg-rose-500 text-white text-sm font-bold px-3 py-1 rounded-full shadow">
@@ -192,12 +233,12 @@ export default function Home() {
                 </span>
                 <span className="text-sm text-gray-500">Ưu đãi hấp dẫn – số lượng có hạn!</span>
               </div>
-              <button
-                onClick={() => { setOnlyDiscount(true); setSortBy('rating'); setPage(0); gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+              <Link
+                to={buildBookListUrl({ section: 'flash-sale', hasDiscount: true, sortBy: 'rating' })}
                 className="text-xs text-indigo-600 hover:underline font-medium"
               >
                 Xem thêm →
-              </button>
+              </Link>
             </div>
             <FlashSaleRow books={flashBooks} />
           </section>
@@ -212,7 +253,7 @@ export default function Home() {
             headerColor="bg-orange-500"
             subtitle="Được yêu thích & mua nhiều nhất"
             cardType="best_seller"
-            onViewMore={() => { applyQuickTab(QUICK_TABS[1]); }}
+            viewMoreTo={buildBookListUrl({ section: 'best-seller', sortBy: 'best_seller' })}
           />
         )}
 
@@ -225,7 +266,7 @@ export default function Home() {
             headerColor="bg-violet-600"
             subtitle="Được độc giả đánh giá xuất sắc"
             cardType="top_rated"
-            onViewMore={() => { applyQuickTab(QUICK_TABS[2]); }}
+            viewMoreTo={buildBookListUrl({ section: 'top-rated', sortBy: 'rating' })}
           />
         )}
 
@@ -240,115 +281,220 @@ export default function Home() {
             subtitle={subtitle}
             cardType="generic"
             staticItems
-            onViewMore={() => {}}
+            viewMoreTo={categoryUrlBySlug(key)}
           />
         ))}
 
-        {/* ── MAIN: sidebar + grid ───────────────────── */}
+        {/* ── TẤT CẢ SÁCH ───────────────────────────────── */}
         <div className="py-6" ref={gridRef}>
 
-          {/* Toolbar */}
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-gray-900 text-lg">
-                {activeCatName || (onlyDiscount ? 'Sách đang giảm giá' : 'Tất cả sách')}
-              </h2>
-              {(activeCatId || onlyDiscount) && (
-                <button
-                  onClick={() => { setActiveCatId(null); setOnlyDiscount(false); setActiveTab('newest'); setSortBy('newest'); setPage(0) }}
-                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                >
-                  <X className="h-3 w-3" /> Bỏ lọc
-                </button>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg">Tất cả sách</h2>
+              {totalElements > 0 && (
+                <p className="text-xs text-gray-400">{totalElements} đầu sách</p>
               )}
             </div>
-
-            <div className="flex items-center gap-2">
+            {hasActiveFilter && (
               <button
-                className="sm:hidden flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-gray-50"
-                onClick={() => setMobileCatOpen(!mobileCatOpen)}
+                onClick={clearFilters}
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 transition-colors px-3 py-1.5 border border-gray-200 rounded-lg hover:border-red-200"
               >
-                <SlidersHorizontal className="h-4 w-4" />
-                Danh mục
+                <X className="h-3 w-3" /> Xóa bộ lọc
               </button>
-
-              <select
-                value={sortBy}
-                onChange={(e) => { setSortBy(e.target.value); setPage(0) }}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
+            )}
           </div>
 
-          {/* Mobile category drawer */}
-          {mobileCatOpen && (
-            <div className="sm:hidden card p-4 mb-4">
-              <CategoryList
-                categories={categories}
-                activeCatId={activeCatId}
-                onSelect={selectCat}
-                open={true}
-                onToggle={() => {}}
-                alwaysOpen
-              />
-            </div>
-          )}
+          {/* Filter bar */}
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-4 mb-5">
+            <div className="flex flex-wrap gap-3 items-end">
 
-          <div className="flex gap-6">
-            {/* Desktop sidebar */}
-            <aside className="w-52 shrink-0 hidden sm:block">
-              <div className="card p-3 sticky top-20">
-                <CategoryList
-                  categories={categories}
-                  activeCatId={activeCatId}
-                  onSelect={selectCat}
-                  open={catOpen}
-                  onToggle={() => setCatOpen(!catOpen)}
-                />
+              {/* Danh mục – native select, bên trái nhất */}
+              <div className="shrink-0">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Danh mục</p>
+                <select
+                  value={catInput}
+                  onChange={(e) => setCatInput(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 min-w-[155px]"
+                >
+                  <option value="">Tất cả danh mục</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
               </div>
-            </aside>
 
-            {/* Book grid */}
-            <div className="flex-1 min-w-0">
-              {loading ? (
-                <PageSpinner />
-              ) : books.length === 0 ? (
-                <div className="text-center py-20 text-gray-400">
-                  <BookOpen className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>Không có sách nào trong danh mục này.</p>
-                  <button
-                    onClick={() => { setActiveCatId(null); setOnlyDiscount(false) }}
-                    className="mt-3 text-sm text-indigo-600 underline"
-                  >
-                    Xem tất cả sách
-                  </button>
+              {/* Sắp xếp */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Sắp xếp</p>
+                <select
+                  value={sortInput}
+                  onChange={(e) => setSortInput(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 min-w-[165px]"
+                >
+                  {SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Tên sách */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Tên sách</p>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Nhập tên sách..."
+                    value={titleInput}
+                    onChange={(e) => setTitleInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                    className="text-sm border border-gray-200 rounded-lg pl-8 pr-8 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 w-36"
+                  />
+                  {titleInput && (
+                    <button onClick={() => setTitleInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-                    {books.map((book, i) => (
-                      <BookCard key={book.id} book={book} colorIndex={i} />
-                    ))}
-                  </div>
-                  <div className="flex justify-center pb-8">
-                    <Pagination page={page} totalPages={totalPages} onChange={setPage} />
-                  </div>
-                </>
-              )}
+              </div>
+
+              {/* Tác giả */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Tác giả</p>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Nhập tên tác giả..."
+                    value={authorInput}
+                    onChange={(e) => setAuthorInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                    className="text-sm border border-gray-200 rounded-lg pl-8 pr-8 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 w-36"
+                  />
+                  {authorInput && (
+                    <button onClick={() => setAuthorInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Năm xuất bản */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Năm xuất bản</p>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="VD: 2023"
+                    maxLength={4}
+                    value={yearInput}
+                    onChange={(e) => setYearInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                    className="text-sm border border-gray-200 rounded-lg px-3 pr-8 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 w-28"
+                  />
+                  {yearInput && (
+                    <button onClick={() => setYearInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Giảm giá */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Ưu đãi</p>
+                <label
+                  className={`flex items-center gap-2 h-9 cursor-pointer text-sm select-none px-3 border rounded-lg transition-colors ${
+                    discountInput
+                      ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-200 text-gray-700 hover:border-indigo-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-400 h-4 w-4"
+                  />
+                  Đang giảm giá
+                </label>
+              </div>
+
+              {/* Áp dụng */}
+              <div className="flex items-end">
+                <button
+                  onClick={applyFilters}
+                  className="btn-primary h-9 px-5 text-sm"
+                >
+                  Áp dụng
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Book grid */}
+          {loading ? (
+            <PageSpinner />
+          ) : books.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <BookOpen className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>Không tìm thấy sách nào phù hợp.</p>
+              <button onClick={clearFilters} className="mt-3 text-sm text-indigo-600 underline">
+                Xóa bộ lọc
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
+                {books.map((book, i) => (
+                  <BookCard key={book.id} book={book} colorIndex={i} />
+                ))}
+              </div>
+              <div className="flex justify-center pb-8">
+                <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
+// ── Hero book column (staggered mosaic on desktop) ──────────────
+function HeroBookColumn({ books, rotates, offsetClass }) {
+  return (
+    <div className={`flex flex-col gap-3 ${offsetClass}`}>
+      {[0, 1].map((i) => {
+        const book = books?.[i]
+        return (
+          <div
+            key={i}
+            className="w-[72px] h-[100px] rounded-xl overflow-hidden shadow-2xl border-2 border-white/25 transition-transform duration-300 hover:scale-105"
+            style={{ transform: `rotate(${rotates[i]}deg)` }}
+          >
+            {book?.imageUrl ? (
+              <img
+                src={book.imageUrl}
+                alt={book.title}
+                className="w-full h-full object-cover"
+                onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.classList.add('bg-white/10') }}
+              />
+            ) : (
+              <div className="w-full h-full bg-white/10 animate-pulse" />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Generic horizontal scroll row with scroll-reveal animation ─
-function SectionRow({ books, title, icon: Icon, headerColor, subtitle, cardType, onViewMore, staticItems = false }) {
+function SectionRow({ books, title, icon: Icon, headerColor, subtitle, cardType, onViewMore, viewMoreTo, staticItems = false }) {
   const [visible, setVisible] = useState(false)
   const sectionRef = useRef(null)
   const rowRef = useRef(null)
@@ -375,12 +521,18 @@ function SectionRow({ books, title, icon: Icon, headerColor, subtitle, cardType,
           </span>
           {subtitle && <span className="text-sm text-gray-500">{subtitle}</span>}
         </div>
-        <button
-          onClick={onViewMore}
-          className="text-xs text-indigo-600 hover:underline font-medium"
-        >
-          Xem thêm →
-        </button>
+        {viewMoreTo ? (
+          <Link to={viewMoreTo} className="text-xs text-indigo-600 hover:underline font-medium">
+            Xem thêm →
+          </Link>
+        ) : (
+          <button
+            onClick={onViewMore}
+            className="text-xs text-indigo-600 hover:underline font-medium"
+          >
+            Xem thêm →
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -531,58 +683,3 @@ function FlashCard({ book }) {
   )
 }
 
-// ── Collapsible category list ─────────────────────────────────
-function CategoryList({ categories, activeCatId, onSelect, open, onToggle, alwaysOpen }) {
-  return (
-    <div>
-      {!alwaysOpen && (
-        <button
-          onClick={onToggle}
-          className="w-full flex items-center justify-between px-2 py-2 text-sm font-bold text-gray-700 hover:text-indigo-700 transition-colors"
-        >
-          <span className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4" />
-            Danh mục
-          </span>
-          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </button>
-      )}
-
-      {(open || alwaysOpen) && (
-        <div className="mt-1 space-y-0.5">
-          <button
-            onClick={() => onSelect(null)}
-            className={`w-full text-left px-3 py-2 text-sm rounded-lg font-medium transition-colors flex items-center gap-2 ${
-              !activeCatId
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-700'
-            }`}
-          >
-            <BookOpen className="h-4 w-4 shrink-0" />
-            Tất cả
-          </button>
-
-          {categories.map((cat) => {
-            const meta    = CAT_META[cat.slug] || {}
-            const Icon    = meta.icon || BookOpen
-            const isActive = activeCatId === cat.id
-            return (
-              <button
-                key={cat.id}
-                onClick={() => onSelect(cat.id)}
-                className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2 ${
-                  isActive
-                    ? 'bg-indigo-600 text-white font-medium'
-                    : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-700'
-                }`}
-              >
-                <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : (meta.color || 'text-gray-400')}`} />
-                <span className="line-clamp-1">{cat.name}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}

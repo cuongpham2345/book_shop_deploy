@@ -9,6 +9,8 @@ import java.util.List;
 public interface AdminOrderService {
     List<OrderResponse> getAllOrders();
     List<OrderResponse> getOrdersByStatus(OrderStatus status);
+    List<OrderResponse> getSellerOrders(String sellerUsername);
+    List<OrderResponse> getSellerOrdersByStatus(String sellerUsername, OrderStatus status);
     OrderResponse getOrderById(Long id);
     OrderResponse updateOrderStatus(Long id, OrderStatus status);
     OrderResponse createOrder(AdminCreateOrderRequest request);

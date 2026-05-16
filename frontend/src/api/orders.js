@@ -10,12 +10,24 @@ export const ordersApi = {
   getAllOrders: (params) =>
     api.get('/api/admin/orders', { params }),
 
+  getSellerOrders: (params) =>
+    api.get('/api/seller/orders', { params }),
+
   updateStatus: (orderId, status) =>
     api.patch(`/api/admin/orders/${orderId}/status`, { status }),
 
   adminCreateOrder: (data) =>
     api.post('/api/admin/orders', data),
 
-  createOrder: (data) =>
-    api.post('/api/admin/orders', data),
+  cancelOrder: (orderId, reason) =>
+    api.patch(`/api/orders/${orderId}/cancel`, null, { params: { reason } }),
+
+  confirmReceived: (orderId) =>
+    api.patch(`/api/orders/${orderId}/confirm-received`),
+
+  getOrderById: (orderId) =>
+    api.get(`/api/orders/${orderId}`),
+
+  checkoutAll: (data) =>
+    api.post('/api/orders/checkout-all', data),
 }

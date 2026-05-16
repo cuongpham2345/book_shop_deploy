@@ -22,4 +22,5 @@ public class BookSummaryResponse {
     private Integer totalSold;
     private Integer stockQuantity;
     private String status;
+    private String sellerName;
 }
