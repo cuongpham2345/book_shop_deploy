@@ -4,6 +4,8 @@ import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
@@ -19,11 +21,22 @@ public class RsaKeyConfigProperties {
     private final RSAPrivateKey privateKey;
 
     public RsaKeyConfigProperties(
-            @Value("${RSA_PUBLIC_KEY}") String publicKeyPem,
-            @Value("${RSA_PRIVATE_KEY}") String privateKeyPem
+            @Value("${RSA_PUBLIC_KEY:}") String publicKeyPem,
+            @Value("${RSA_PRIVATE_KEY:}") String privateKeyPem
     ) throws Exception {
+        if (publicKeyPem == null || publicKeyPem.isBlank())
+            publicKeyPem = readClasspath("certs/public-key.pem");
+        if (privateKeyPem == null || privateKeyPem.isBlank())
+            privateKeyPem = readClasspath("certs/private-key.pem");
         this.publicKey = parsePublicKey(publicKeyPem);
         this.privateKey = parsePrivateKey(privateKeyPem);
+    }
+
+    private String readClasspath(String path) throws Exception {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(path)) {
+            if (is == null) throw new IllegalStateException("Không tìm thấy " + path);
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     private RSAPublicKey parsePublicKey(String pem) throws Exception {

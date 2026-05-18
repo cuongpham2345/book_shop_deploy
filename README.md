@@ -1,52 +1,65 @@
-# Book Shop - Website Bán Sách
+# Book Shop - Website Bán Sách Trực Tuyến
 
-Website bán sách trực tuyến với đầy đủ tính năng: duyệt sách, giỏ hàng, đặt hàng, quản lý admin.
-
-## Yêu cầu
-
-| Công cụ | Phiên bản |
-|---------|-----------|
-| Java    | 17+       |
-| Maven   | 3.8+ (hoặc dùng `mvnw` có sẵn) |
-| MySQL   | 8.0+      |
-| Node.js | 18+       |
-| npm     | 9+        |
+Website bán sách với đầy đủ tính năng: duyệt sách, giỏ hàng, đặt hàng, quản lý Seller và Admin.
 
 ---
 
-## Cách chạy
+## Chạy nhanh bằng Docker (Khuyến nghị)
+
+> Chỉ cần cài **Docker Desktop**, không cần Java, Maven, Node, MySQL.
+
+```bash
+git clone https://github.com/cuongpham2345/book_shop_deploy.git
+cd book_shop_deploy
+docker compose up --build
+```
+
+Mở trình duyệt: **http://localhost:8080**
+
+> Lần đầu build mất khoảng 3–5 phút. Lần sau chạy lại thì dùng `docker compose up` (không cần `--build`).
+
+### Tài khoản có sẵn
+
+| Username | Password   | Vai trò |
+|----------|------------|---------|
+| admin    | Admin1234  | Admin   |
+| seller1  | seller1    | Seller  |
+
+> Tài khoản User: tự đăng ký tại trang `/register`
+
+### Dừng ứng dụng
+
+```bash
+docker compose down
+```
+
+Muốn xóa luôn dữ liệu database (reset sạch):
+
+```bash
+docker compose down -v
+```
+
+---
+
+## Chạy thủ công (không dùng Docker)
+
+Yêu cầu: **Java 17+**, **Maven**, **Node.js 18+**, **MySQL 8**
 
 ### Bước 1 — Tạo database và import dữ liệu mẫu
 
-```sql
-CREATE DATABASE book_shop_db
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-```
-
-Sau đó import toàn bộ schema + dữ liệu mẫu:
-
 ```bash
-mysql -u root -p book_shop_db < backend/src/main/resources/data.sql
+mysql -u root -p -e "CREATE DATABASE book_shop_db CHARACTER SET utf8mb4;"
+mysql -u root -p book_shop_db < data.sql
 ```
-
-> File `data.sql` chứa đầy đủ: bảng, sách, danh mục, tài khoản mẫu.
 
 ### Bước 2 — Cấu hình kết nối database
 
-Mở file `backend/src/main/resources/application.yaml` và sửa phần sau nếu cần:
+Sửa `backend/src/main/resources/application.yaml` nếu password MySQL khác mặc định:
 
 ```yaml
 datasource:
-  username: root          # username MySQL của bạn
-  password: 12345678      # password MySQL của bạn
-```
-
-Hoặc truyền qua biến môi trường:
-
-```bash
-export DB_USERNAME=root
-export DB_PASSWORD=your_password
+  username: root
+  password: 12345678   # đổi thành password MySQL của bạn
 ```
 
 ### Bước 3 — Chạy Backend
@@ -54,25 +67,14 @@ export DB_PASSWORD=your_password
 ```bash
 cd backend
 
-# Windows
-mvnw.cmd spring-boot:run
-
 # Mac / Linux
 ./mvnw spring-boot:run
+
+# Windows
+mvnw.cmd spring-boot:run
 ```
 
 Backend chạy tại: **http://localhost:8080**
-
-**Tài khoản mặc định:**
-
-| Username   | Password   | Vai trò |
-|------------|------------|---------|
-| admin      | Admin1234  | Admin   |
-| levanc     | Pass1234   | User    |
-| phamthid   | Pass1234   | User    |
-| hoangvane  | Pass1234   | User    |
-| tranthib   | Pass1234   | User    |
-| nguyenvana | Pass1234   | User    |
 
 ### Bước 4 — Chạy Frontend
 
@@ -89,27 +91,25 @@ Frontend chạy tại: **http://localhost:5173**
 ## Cấu trúc dự án
 
 ```
-book/
-├── backend/          # Spring Boot 3.5 REST API (Java 17)
-│   └── src/
-│       ├── main/java/buy_book/    # Source code
-│       └── main/resources/
-│           ├── application.yaml   # Cấu hình chính
-│           ├── data.sql           # Schema + dữ liệu mẫu
-│           └── certs/             # RSA key pair (JWT)
-└── frontend/         # React + Vite + TailwindCSS
-    └── src/
+book_shop_deploy/
+├── backend/                    # Spring Boot 3.5 REST API (Java 17)
+│   └── src/main/
+│       ├── java/buy_book/      # Source code
+│       └── resources/
+│           ├── application.yaml
+│           └── certs/          # RSA key pair (JWT)
+├── frontend/                   # React 19 + TypeScript + TailwindCSS
+├── data.sql                    # Schema + dữ liệu mẫu
+├── Dockerfile                  # Multi-stage build
+├── docker-compose.yml          # Chạy app + MySQL cùng lúc
+└── railway.json                # Cấu hình deploy Railway
 ```
 
-## API
+## Công nghệ
 
-- Backend: `http://localhost:8080`
-- Frontend proxy: Vite tự động chuyển `/api/*` → `http://localhost:8080`
-- Swagger / Docs: chưa cấu hình (xem source code controller)
-
----
-
-## Lưu ý
-
-- `data.sql` cần import thủ công một lần duy nhất vào MySQL. Sau đó backend tự quản lý schema qua `ddl-auto: update`.
-- RSA key pair trong `certs/` chỉ dùng cho mục đích học tập.
+| Phần | Công nghệ |
+|------|-----------|
+| Backend | Spring Boot 3.5, Spring Security, JWT (RSA), JPA/Hibernate |
+| Frontend | React 19, TypeScript, Vite, TailwindCSS, React Router v7 |
+| Database | MySQL 8 |
+| Deploy | Docker, Railway |
