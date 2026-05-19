@@ -12,6 +12,15 @@ interface CategoryBooks {
   books: BookSummary[]
 }
 
+const categoryBooksUrl = (category: CategoryResponse) => {
+  const params = new URLSearchParams({ categoryId: String(category.id) })
+  if (category.slug) {
+    params.set('section', category.slug)
+    params.set('categorySlug', category.slug)
+  }
+  return `/books?${params.toString()}`
+}
+
 export default function Home() {
   const [categoryBooks, setCategoryBooks] = useState<CategoryBooks[]>([])
   const [categories, setCategories] = useState<CategoryResponse[]>([])
@@ -67,7 +76,7 @@ export default function Home() {
             {categories.map((cat) => (
               <Link
                 key={cat.id}
-                to={`/books?categoryId=${cat.id}`}
+                to={categoryBooksUrl(cat)}
                 className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-full text-gray-700 hover:border-gray-900 hover:text-gray-900 transition-colors bg-white"
               >
                 {cat.name}
@@ -83,7 +92,7 @@ export default function Home() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900">{category.name}</h2>
             <Link
-              to={`/books?categoryId=${category.id}`}
+              to={categoryBooksUrl(category)}
               className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 transition-colors"
             >
               Xem thêm <ArrowRight className="h-3.5 w-3.5" />

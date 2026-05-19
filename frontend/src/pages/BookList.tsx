@@ -13,7 +13,9 @@ const PAGE_SIZE = 12
 export default function BookList() {
   const [searchParams, setSearchParams] = useSearchParams()
   const keyword = searchParams.get('q') || ''
-  const categoryId = searchParams.get('categoryId') ? Number(searchParams.get('categoryId')) : undefined
+  const section = searchParams.get('section') || ''
+  const categorySlug = searchParams.get('categorySlug') || ''
+  const categoryIdParam = searchParams.get('categoryId') ? Number(searchParams.get('categoryId')) : undefined
   const page = Number(searchParams.get('page') || '0')
 
   const [books, setBooks] = useState<BookSummary[]>([])
@@ -28,7 +30,13 @@ export default function BookList() {
     categoriesApi.getAll().then((res) => setCategories(res.data.result.filter((c) => c.active)))
   }, [])
 
+  const activeCategory = categories.find((c) => c.id === categoryIdParam)
+    || categories.find((c) => c.slug === categorySlug)
+  const categoryId = categoryIdParam || activeCategory?.id
+  const isFocusedCategoryPage = !!(section || categorySlug) && !!categoryId
+
   const fetchBooks = useCallback(() => {
+    if ((section || categorySlug) && !categoryId) return
     setLoading(true)
     const params = { page, size: PAGE_SIZE, categoryId, minPrice: minPrice ? Number(minPrice) : undefined, maxPrice: maxPrice ? Number(maxPrice) : undefined }
     const req = keyword
@@ -39,7 +47,7 @@ export default function BookList() {
       setTotalPages(res.data.result.totalPages)
       setTotalElements(res.data.result.totalElements)
     }).finally(() => setLoading(false))
-  }, [keyword, categoryId, page, minPrice, maxPrice])
+  }, [keyword, categoryId, page, minPrice, maxPrice, section, categorySlug])
 
   useEffect(() => { fetchBooks() }, [fetchBooks])
 
@@ -59,11 +67,24 @@ export default function BookList() {
 
   const clearFilters = () => {
     setMinPrice(''); setMaxPrice('')
-    setSearchParams({})
+    setSearchParams((prev) => {
+      const next = new URLSearchParams()
+      if (isFocusedCategoryPage) {
+        const currentSection = prev.get('section')
+        const currentCategorySlug = prev.get('categorySlug')
+        const currentCategoryId = prev.get('categoryId')
+        if (currentSection) next.set('section', currentSection)
+        if (currentCategoryId) next.set('categoryId', currentCategoryId)
+        if (currentCategorySlug) next.set('categorySlug', currentCategorySlug)
+      }
+      return next
+    })
   }
 
-  const activeCategoryName = categories.find((c) => c.id === categoryId)?.name
-  const hasActiveFilters = !!(keyword || categoryId || minPrice || maxPrice)
+  const activeCategoryName = activeCategory?.name
+  const hasActiveFilters = isFocusedCategoryPage
+    ? !!(keyword || minPrice || maxPrice)
+    : !!(keyword || categoryId || minPrice || maxPrice)
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -78,31 +99,33 @@ export default function BookList() {
       {/* Filter bar */}
       <div className="bg-white border border-gray-100 rounded-xl p-4 mb-6 space-y-4">
         {/* Category pills */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setCategory(undefined)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-              !categoryId
-                ? 'bg-gray-900 text-white border-gray-900'
-                : 'border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white'
-            }`}
-          >
-            Tất cả
-          </button>
-          {categories.map((cat) => (
+        {!isFocusedCategoryPage && (
+          <div className="flex flex-wrap gap-2">
             <button
-              key={cat.id}
-              onClick={() => setCategory(cat.id)}
+              onClick={() => setCategory(undefined)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                categoryId === cat.id
+                !categoryId
                   ? 'bg-gray-900 text-white border-gray-900'
                   : 'border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white'
               }`}
             >
-              {cat.name}
+              Tất cả
             </button>
-          ))}
-        </div>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setCategory(cat.id)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  categoryId === cat.id
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white'
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Price range + clear */}
         <div className="flex flex-wrap items-center gap-3">
