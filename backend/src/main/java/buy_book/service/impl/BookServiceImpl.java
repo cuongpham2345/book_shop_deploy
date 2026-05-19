@@ -15,6 +15,7 @@ import buy_book.repository.CategoryRepository;
 import buy_book.repository.UserRepository;
 import buy_book.service.BookService;
 import buy_book.specification.BookSpecification;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
@@ -249,12 +250,12 @@ public class BookServiceImpl implements BookService {
                 .price(book.getPrice())
                 .discountPrice(book.getDiscountPrice())
                 .imageUrl(book.getImageUrl())
-                .categoryName(book.getCategory() != null ? book.getCategory().getName() : null)
+                .categoryName(safeCategoryName(book))
                 .avgRating(book.getAvgRating())
                 .totalSold(book.getTotalSold())
                 .stockQuantity(book.getStockQuantity())
                 .status(book.getStatus() != null ? book.getStatus().name() : (book.isActive() ? "ACTIVE" : "INACTIVE"))
-                .sellerName(book.getSeller() != null ? book.getSeller().getFullName() : null)
+                .sellerName(safeSellerName(book))
                 .build();
     }
 
@@ -273,15 +274,51 @@ public class BookServiceImpl implements BookService {
                 .isbn(book.getIsbn())
                 .pageCount(book.getPageCount())
                 .language(book.getLanguage())
-                .categoryName(book.getCategory() != null ? book.getCategory().getName() : null)
-                .categoryId(book.getCategory() != null ? book.getCategory().getId() : null)
-                .sellerName(book.getSeller() != null ? book.getSeller().getFullName() : null)
-                .sellerId(book.getSeller() != null ? book.getSeller().getId() : null)
+                .categoryName(safeCategoryName(book))
+                .categoryId(safeCategoryId(book))
+                .sellerName(safeSellerName(book))
+                .sellerId(safeSellerId(book))
                 .avgRating(book.getAvgRating())
                 .totalSold(book.getTotalSold())
                 .status(book.getStatus() != null ? book.getStatus().name() : (book.isActive() ? "ACTIVE" : "INACTIVE"))
                 .createdAt(book.getCreatedAt())
                 .updatedAt(book.getUpdatedAt())
                 .build();
+    }
+
+    private String safeCategoryName(Book book) {
+        try {
+            Category category = book.getCategory();
+            return category != null ? category.getName() : null;
+        } catch (EntityNotFoundException e) {
+            return null;
+        }
+    }
+
+    private Long safeCategoryId(Book book) {
+        try {
+            Category category = book.getCategory();
+            return category != null ? category.getId() : null;
+        } catch (EntityNotFoundException e) {
+            return null;
+        }
+    }
+
+    private String safeSellerName(Book book) {
+        try {
+            User seller = book.getSeller();
+            return seller != null ? seller.getFullName() : null;
+        } catch (EntityNotFoundException e) {
+            return null;
+        }
+    }
+
+    private Long safeSellerId(Book book) {
+        try {
+            User seller = book.getSeller();
+            return seller != null ? seller.getId() : null;
+        } catch (EntityNotFoundException e) {
+            return null;
+        }
     }
 }
